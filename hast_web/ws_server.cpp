@@ -1,7 +1,7 @@
 std::string ws_server::extract_from_raw(const short int thread_index){
-	unsigned char u_msg[300];
-	int len;
-	if(getFrame(&raw_msg[thread_index][0], raw_msg[thread_index].length(), u_msg, 300, &len)==TEXT_FRAME){
+	int len {raw_msg[thread_index].length()+1};
+	unsigned char u_msg[len];
+	if(getFrame(&raw_msg[thread_index][0], raw_msg[thread_index].length(), u_msg, len, &len)==TEXT_FRAME){
 		std::string tmp(reinterpret_cast<char*>(u_msg));
 		return tmp;
 	}
@@ -144,15 +144,15 @@ WebSocketFrameType ws_server::getFrame(unsigned char* in_buffer, int in_length, 
 }
 
 inline void ws_server::echo_back_msg(const short int socket_index, std::string &msg){
-	char buf[300];
-	int len;
-	len = makeFrame(TEXT_FRAME,msg.c_str(),msg.length(),buf,300);
+	int len {msg.length()+1};
+	char buf[len];
+	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
 	send(socket_index, buf, len,0);
 }
 
 inline void ws_server::echo_back_msg(const short int socket_index, const char* msg){
-	char buf[300];
-	int len;
-	len = makeFrame(TEXT_FRAME, msg, strlen(msg),buf,300);
+	int len {strlen(msg)+1};
+	char buf[len];
+	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
 	send(socket_index, buf, len,0);
 }
