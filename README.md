@@ -22,7 +22,7 @@ g++ --std=c++11 -pthread -lcrypto .......
 
 * Please take a look at `examples` folder. This library is pretty easy.
 * If you want to know more details about APIs of this library, [wiki page](https://github.com/hn12404988/hast_web/wiki) is where you want to go.
-* This library is based on [hast](https://github.com/hn12404988/hast) core. If you want to break down this library to pieces, there is a **Abstraction Layer** [video](https://www.youtube.com/watch?v=EpoL8mSOA6E).
+* This library is based on [hast](https://github.com/hn12404988/hast) core. If you want to break down this library to pieces, there is a [**Abstraction Layer Video**](https://www.youtube.com/watch?v=EpoL8mSOA6E).
 
 ## Framework
 
