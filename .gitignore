@@ -9,6 +9,7 @@ org-mode-config.el
 \#*\#
 *.o
 *.socket
+*.sh
 *.log
 .DS_Store
 org-clock-save.el
