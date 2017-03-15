@@ -18,9 +18,11 @@ Websocket server based on [hast](https://github.com/hn12404988/hast) structure. 
 g++ --std=c++11 -pthread -lcrypto .......
 ```
 
-## More Information
+## How to use
 
-* Please go to [hast](https://github.com/hn12404988/hast) page in this moment. I'm still working on this project.
+* Please take a look at `examples` folder. This library is pretty easy.
+* If you want to know more details about APIs of this library, [wiki page](https://github.com/hn12404988/hast_web/wiki) is where you want to go.
+* This library is based on [hast](https://github.com/hn12404988/hast) core. If you want to break down this library to pieces, there is a **Abstraction Layer** [video](https://www.youtube.com/watch?v=EpoL8mSOA6E).
 
 ## Framework
 
