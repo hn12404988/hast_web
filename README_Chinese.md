@@ -9,7 +9,6 @@
 
 ## 安裝
 
-* [hast](https://github.com/hn12404988/hast)運行正常。
 * `openssl-devel` 套件安裝完畢.
 * 把`hast_web`資料夾複製到系統裡的include資料夾
 * 這專案使用到`std::thread`和`crypto.h`，所以編譯指令可能需包含以下兩個套件：

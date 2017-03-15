@@ -11,7 +11,6 @@ Websocket server based on [hast](https://github.com/hn12404988/hast) core. Let i
 
 ## Getting Started
 
-* [hast](https://github.com/hn12404988/hast) is running well.
 * `openssl-devel` is installed.
 * It is **header-only** library. Copy `hast_web` folder to your include path.
 * Usage of the library and other details please refer to `example` folder in this moment.
