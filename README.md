@@ -1,6 +1,6 @@
 # hast_web
 
-Websocket server based on [hast](https://github.com/hn12404988/hast) structure. Let it be a fast server, and can handle requests in parallel. The cost is **Linux-Only**.
+Websocket server based on [hast](https://github.com/hn12404988/hast) core. Let it be a fast server, and can handle requests in parallel. The cost is **Linux-Only**.
 
 ## Note that..
 
