@@ -89,7 +89,7 @@ inline void server_thread::add_thread(){
 		}
 	}
 	in_execution.push_back(true);
-	raw_msg.resize(a+1);
+	raw_msg.push_back("");
 	thread_list.push_back(nullptr);
 	thread_list[a] = new std::thread(execute,a);
 	++alive_thread;

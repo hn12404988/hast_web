@@ -136,19 +136,29 @@ bool socket_server::msg_recv(const short int thread_index){
 		got_it = true;
 		int l;
 		unsigned char new_char[transport_size];
+		std::basic_string<unsigned char> raw_str;
 		for(;;){
 			l = recv(socketfd[thread_index], new_char, transport_size, 0);
 			if(l>0){
-				l += raw_msg[thread_index].length();
-				raw_msg[thread_index].append(new_char);
-				raw_msg[thread_index].resize(l);
+				l += raw_str.length();
+				raw_str.append(new_char);
+				raw_str.resize(l);
 				l = 0;
 			}
 			else{
 				break;
 			}
 		}
-		if(raw_msg[thread_index].empty()==true){
+		l = raw_str.length()+1;
+		unsigned char u_msg[l];
+		if(getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l)==TEXT_FRAME){
+			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
+		}
+		else{
+			close_socket(socketfd[thread_index]);
+			continue;
+		}
+		if(raw_msg[thread_index]==""){
 			//client close connection.
 			close_socket(socketfd[thread_index]);
 			continue;
@@ -159,6 +169,9 @@ bool socket_server::msg_recv(const short int thread_index){
 }
 
 inline void socket_server::close_socket(const int socket_index){
+	if(on_close!=nullptr){
+		on_close(socket_index);
+	}
 	--alive_socket;
 	int a;
 	epoll_ctl(epollfd, EPOLL_CTL_DEL, socket_index,nullptr);
@@ -181,6 +194,9 @@ int socket_server::get_socket(short int thread_index){
 }
 
 void socket_server::start_accept(){
+	if(execute==nullptr){
+		return;
+	}
 	int l;
 	char new_char[transport_size];
 	std::string msg;
@@ -227,6 +243,9 @@ void socket_server::start_accept(){
 				continue;
 			}
 			send(new_socket, msg.c_str(), msg.length(),0);
+			if(on_open!=nullptr){
+				on_open(new_socket);
+			}
 			if(recv_thread==-1){
 				add_thread();
 			}
@@ -283,4 +302,137 @@ void socket_server::upgrade(std::string &headers){
 		}
 	}
 	headers.clear();
+}
+
+int socket_server::makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_length, unsigned char* buffer, int buffer_size)
+{
+	int pos = 0;
+	int size = msg_length; 
+	buffer[pos++] = (unsigned char)frame_type; // text frame
+
+	if(size <= 125) {
+		buffer[pos++] = size;
+	}
+	else if(size <= 65535) {
+		buffer[pos++] = 126; //16 bit length follows
+		
+		buffer[pos++] = (size >> 8) & 0xFF; // leftmost first
+		buffer[pos++] = size & 0xFF;
+	}
+	else { // >2^16-1 (65535)
+		buffer[pos++] = 127; //64 bit length follows
+		
+		// write 8 bytes length (significant first)
+		
+		// since msg_length is int it can be no longer than 4 bytes = 2^32-1
+		// padd zeroes for the first 4 bytes
+		for(int i=3; i>=0; i--) {
+			buffer[pos++] = 0;
+		}
+		// write the actual 32bit msg_length in the next 4 bytes
+		for(int i=3; i>=0; i--) {
+			buffer[pos++] = ((size >> 8*i) & 0xFF);
+		}
+	}
+	memcpy((void*)(buffer+pos), msg, size);
+	return (size+pos);
+}
+
+int socket_server::makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_length, char* buffer, int buffer_size)
+{
+	int pos = 0;
+	int size = msg_length; 
+	buffer[pos++] = (unsigned char)frame_type; // text frame
+
+	if(size <= 125) {
+		buffer[pos++] = size;
+	}
+	else if(size <= 65535) {
+		buffer[pos++] = 126; //16 bit length follows
+		
+		buffer[pos++] = (size >> 8) & 0xFF; // leftmost first
+		buffer[pos++] = size & 0xFF;
+	}
+	else { // >2^16-1 (65535)
+		buffer[pos++] = 127; //64 bit length follows
+		
+		// write 8 bytes length (significant first)
+		
+		// since msg_length is int it can be no longer than 4 bytes = 2^32-1
+		// padd zeroes for the first 4 bytes
+		for(int i=3; i>=0; i--) {
+			buffer[pos++] = 0;
+		}
+		// write the actual 32bit msg_length in the next 4 bytes
+		for(int i=3; i>=0; i--) {
+			buffer[pos++] = ((size >> 8*i) & 0xFF);
+		}
+	}
+	memcpy((void*)(buffer+pos), msg, size);
+	return (size+pos);
+}
+
+WebSocketFrameType socket_server::getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length)
+{
+	//printf("getTextFrame()\n");
+	if(in_length < 3) return INCOMPLETE_FRAME;
+
+	unsigned char msg_opcode = in_buffer[0] & 0x0F;
+	unsigned char msg_fin = (in_buffer[0] >> 7) & 0x01;
+	unsigned char msg_masked = (in_buffer[1] >> 7) & 0x01;
+
+	// *** message decoding 
+
+	int payload_length = 0;
+	int pos = 2;
+	int length_field = in_buffer[1] & (~0x80);
+	unsigned int mask = 0;
+
+	//printf("IN:"); for(int i=0; i<20; i++) printf("%02x ",buffer[i]); printf("\n");
+
+	if(length_field <= 125) {
+		payload_length = length_field;
+	}
+	else if(length_field == 126) { //msglen is 16bit!
+		payload_length = in_buffer[2] + (in_buffer[3]<<8);
+		pos += 2;
+	}
+	else if(length_field == 127) { //msglen is 64bit!
+		payload_length = in_buffer[2] + (in_buffer[3]<<8); 
+		pos += 8;
+	}
+	//printf("PAYLOAD_LEN: %08x\n", payload_length);
+	if(in_length < payload_length+pos) {
+		return INCOMPLETE_FRAME;
+	}
+
+	if(msg_masked) {
+		mask = *((unsigned int*)(in_buffer+pos));
+		//printf("MASK: %08x\n", mask);
+		pos += 4;
+
+		// unmask data:
+		unsigned char* c = in_buffer+pos;
+		for(int i=0; i<payload_length; i++) {
+			c[i] = c[i] ^ ((unsigned char*)(&mask))[i%4];
+		}
+	}
+	
+	if(payload_length > out_size) {
+		//TODO: if output buffer is too small -- ERROR or resize(free and allocate bigger one) the buffer ?
+	}
+
+	memcpy((void*)out_buffer, (void*)(in_buffer+pos), payload_length);
+	out_buffer[payload_length] = 0;
+	*out_length = payload_length+1;
+	
+	//printf("TEXT: %s\n", out_buffer);
+
+	if(msg_opcode == 0x0) return (msg_fin)?TEXT_FRAME:INCOMPLETE_TEXT_FRAME; // continuation frame ?
+	if(msg_opcode == 0x1) return (msg_fin)?TEXT_FRAME:INCOMPLETE_TEXT_FRAME;
+	if(msg_opcode == 0x2) return (msg_fin)?BINARY_FRAME:INCOMPLETE_BINARY_FRAME;
+	if(msg_opcode == 0x9) return PING_FRAME;
+	if(msg_opcode == 0xA) return PONG_FRAME;
+
+	return ERROR_FRAME;
 }

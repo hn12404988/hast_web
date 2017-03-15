@@ -17,9 +17,9 @@ protected:
 	inline void resize();
 	inline void add_thread();
 public:
-	std::function<void(const short int)> execute;
+	std::function<void(const short int)> execute {nullptr};
 	std::vector<int> socketfd;
-	std::vector< std::basic_string<unsigned char> > raw_msg;
+	std::vector<std::string> raw_msg;
 	~server_thread();
 };
 

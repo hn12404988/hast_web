@@ -8,6 +8,22 @@
 #include <map>
 
 #define MAX_EVENTS 10
+enum WebSocketFrameType {
+	ERROR_FRAME=0xFF00,
+	INCOMPLETE_FRAME=0xFE00,
+
+	OPENING_FRAME=0x3300,
+	CLOSING_FRAME=0x3400,
+
+	INCOMPLETE_TEXT_FRAME=0x01,
+	INCOMPLETE_BINARY_FRAME=0x02,
+
+	TEXT_FRAME=0x81,
+	BINARY_FRAME=0x82,
+
+	PING_FRAME=0x19,
+	PONG_FRAME=0x1A
+};
 
 class socket_server : public tcp_config, public server_thread{
 protected:
@@ -25,9 +41,14 @@ protected:
 	inline void close_socket(const int socket_index);
 	inline void recv_epoll();
 	void upgrade(std::string &headers);
+	WebSocketFrameType getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length);
+	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
+	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
 public:
 	socket_server();
 	~socket_server();
+	std::function<void(const int)> on_close {nullptr};
+	std::function<void(const int)> on_open {nullptr};
 	bool init(hast::tcp_socket::port port, short int unsigned max);
 	bool msg_recv(const short int thread_index);
 	void start_accept();
