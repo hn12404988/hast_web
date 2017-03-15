@@ -10,7 +10,8 @@ Websocket server based on [hast](https://github.com/hn12404988/hast) structure. 
 ## Getting Started
 
 * [hast](https://github.com/hn12404988/hast) is running well.
-* It's **header-only** library. Copy `hast_web` folder to your include path.
+* `openssl-devel` is installed.
+* It is **header-only** library. Copy `hast_web` folder to your include path.
 * Usage of the library and other details please refer to `example` folder in this moment.
 * This project use `std::thread` and `crypto.h`, so compilation command can be:
 ```
