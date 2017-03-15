@@ -2,6 +2,8 @@
 
 Websocket server based on [hast](https://github.com/hn12404988/hast) core. Let it be a fast server, and can handle requests in parallel. The cost is **Linux-Only**.
 
+* [中文簡介](https://github.com/hn12404988/hast_web/blob/master/README_Chinese.md)
+
 ## Note that..
 
 * Support part of RFC6455.
