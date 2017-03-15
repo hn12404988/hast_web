@@ -6,7 +6,8 @@ ws_server server;
 auto execute = [&](const short int index){
 	while(server.msg_recv(index)==true){
 		std::string str = server.extract_from_raw(index);
-		std::cout << str << std::endl;
+		std::cout << "msg: " << str << std::endl;
+		std::cout << "socketfd: " << server.socketfd[index] << std::endl;
 		str = "I'm here!";
 		server.echo_back_msg(server.socketfd[index],str);
 	}

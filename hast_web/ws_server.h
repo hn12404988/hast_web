@@ -30,8 +30,8 @@ public:
 		reset_addr(hast::tcp_socket::SERVER);
 	}
 	std::string extract_from_raw(const short int thread_index);
-	inline void echo_back_msg(const short int socket_index, std::string &msg);
-	inline void echo_back_msg(const short int socket_index, const char *msg);
+	inline void echo_back_msg(const int socket_index, std::string &msg);
+	inline void echo_back_msg(const int socket_index, const char *msg);
 };
 
 #include <hast_web/ws_server.cpp>

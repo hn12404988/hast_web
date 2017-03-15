@@ -158,9 +158,9 @@ bool socket_server::msg_recv(const short int thread_index){
 	}
 }
 
-inline void socket_server::close_socket(const short int socket_index){
+inline void socket_server::close_socket(const int socket_index){
 	--alive_socket;
-	short int a;
+	int a;
 	epoll_ctl(epollfd, EPOLL_CTL_DEL, socket_index,nullptr);
 	shutdown(socket_index,SHUT_RDWR);
 	close(socket_index);
@@ -186,7 +186,7 @@ void socket_server::start_accept(){
 	std::string msg;
 	struct pollfd ufds;
 	ufds.events = POLLIN;
-	short int new_socket {1};
+	int new_socket {1};
 	while(new_socket>=0){
 		new_socket = accept4(host_socket, (struct sockaddr *)&client_addr, &client_addr_size,SOCK_NONBLOCK);
 		if(new_socket>0){

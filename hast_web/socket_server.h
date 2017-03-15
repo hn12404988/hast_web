@@ -22,7 +22,7 @@ protected:
 	
 	std::mutex waiting_mx;
 
-	inline void close_socket(const short int socket_index);
+	inline void close_socket(const int socket_index);
 	inline void recv_epoll();
 	void upgrade(std::string &headers);
 public:
