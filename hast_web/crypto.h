@@ -12,6 +12,8 @@
 #include <openssl/buffer.h>
 #include <openssl/sha.h>
 #include <openssl/md5.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 class Crypto {
 	const static size_t buffer_size=131072;

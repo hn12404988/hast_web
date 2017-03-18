@@ -1,67 +1,157 @@
-server_thread::~server_thread(){
-	i = thread_list.size()-1;
-	for(;i>=0;--i){
-		if(thread_list[i]!=nullptr){
-			if(thread_list[i]->joinable()==true){
-				thread_list[i]->join();
-				delete thread_list[i];
+template<>
+server_thread<int>::server_thread(){}
+
+template<>
+server_thread<SSL*>::server_thread(){}
+
+template<>
+bool server_thread<SSL*>::wss_init(const char* crt, const char* key){
+	SSL_load_error_strings();	
+	OpenSSL_add_ssl_algorithms();
+	SSL_library_init();
+	const SSL_METHOD *method;
+	method = SSLv23_server_method();
+	ctx = SSL_CTX_new(method);
+	if (!ctx) {
+		perror("Unable to create SSL context");
+		ERR_print_errors_fp(stderr);
+		return false;
+	}
+	SSL_CTX_set_ecdh_auto(ctx, 1);
+	/* Set the key and cert */
+	if (SSL_CTX_use_certificate_file(ctx, crt, SSL_FILETYPE_PEM) < 0) {
+		ERR_print_errors_fp(stderr);
+		return false;
+	}
+	if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) < 0 ) {
+		ERR_print_errors_fp(stderr);
+		return false;
+	}
+	return true;
+}
+
+template<>
+server_thread<SSL*>::~server_thread(){
+	short int a;
+	a = thread_list.size()-1;
+	for(;a>=0;--a){
+		if(thread_list[a]!=nullptr){
+			if(thread_list[a]->joinable()==true){
+				thread_list[a]->join();
+				delete thread_list[a];
+			}
+		}
+		if(socketfd[a]!=nullptr){
+			SSL_free(socketfd[a]);
+		}
+	}
+	if(ctx!=nullptr){
+		SSL_CTX_free(ctx);
+	}
+	ERR_free_strings();
+	EVP_cleanup();
+}
+
+template<>
+server_thread<int>::~server_thread(){
+	short int a;
+	a = thread_list.size()-1;
+	for(;a>=0;--a){
+		if(thread_list[a]!=nullptr){
+			if(thread_list[a]->joinable()==true){
+				thread_list[a]->join();
+				delete thread_list[a];
 			}
 		}
 	}
 }
 
-inline void server_thread::resize(){
-	//called by recv thread
-	i = alive_thread - alive_socket - 1;
-	if(i>0){
-		j = socketfd.size()-1;
-		for(;j>=0;--j){
-			if(recv_thread==j){
+template<>
+inline void server_thread<int>::resize(){
+	short int a,b;
+	a = alive_thread - alive_socket - 1;
+	if(a>0){
+		b = socketfd.size()-1;
+		for(;b>=0;--b){
+			if(recv_thread==b){
 				continue;
 			}
-			if(i==0){
+			if(a==0){
 				break;
 			}
-			if(in_execution[j]==false && socketfd[j]==-1 && thread_list[j]!=nullptr && recv_thread!=j){
-				socketfd[j] = -2;
+			if(in_execution[b]==0 && thread_list[b]!=nullptr){
+				in_execution[b] = 2;
 			}
-			else if(socketfd[j]==-2){
+			else if(in_execution[b]==2){
 			}
 			else{
 				continue;
 			}
-			if(thread_list[j]->joinable()==true){
-				thread_list[j]->join();
-				delete thread_list[j];
-				thread_list[j] = nullptr;
-				socketfd[j] = -1;
+			if(thread_list[b]->joinable()==true){
+				thread_list[b]->join();
+				delete thread_list[b];
+				thread_list[b] = nullptr;
 				--alive_thread;
-				--i;
+				--a;
 			}
 		}
 	}
 }
 
-inline void server_thread::get_thread(){
-	//called by recv thread
-	j = socketfd.size()-1;
-	for(;j>=0;--j){
-		if(recv_thread==j){
-			continue;
-		}
-		if(socketfd[j]==-1 && in_execution[j]==false){
-			break;
-		}
-	}
-	if(j==-1){
-		if(socketfd[recv_thread]==-1){
-			j = recv_thread;
+template<>
+inline void server_thread<SSL*>::resize(){
+	short int a,b;
+	a = alive_thread - alive_socket - 1;
+	if(a>0){
+		b = socketfd.size()-1;
+		for(;b>=0;--b){
+			if(recv_thread==b){
+				continue;
+			}
+			if(a==0){
+				break;
+			}
+			if(in_execution[b]==0 && thread_list[b]!=nullptr){
+				in_execution[b] = 2;
+			}
+			else if(in_execution[b]==2){
+			}
+			else{
+				continue;
+			}
+			if(thread_list[b]->joinable()==true){
+				thread_list[b]->join();
+				delete thread_list[b];
+				thread_list[b] = nullptr;
+				SSL_free(socketfd[b]);
+				socketfd[b] = nullptr;
+				--alive_thread;
+				--a;
+			}
 		}
 	}
 }
 
-inline void server_thread::add_thread(){
-	//called by main thread and recv thread
+template<class sock_T>
+short int server_thread<sock_T>::get_thread(){
+	short int a;
+	a = socketfd.size()-1;
+	for(;a>=0;--a){
+		if(recv_thread==a){
+			continue;
+		}
+		if(in_execution[a]==0){
+			break;
+		}
+	}
+	if(a==-1){
+		a = recv_thread;
+	}
+	return a;
+}
+
+template<>
+inline void server_thread<int>::add_thread(){
 	short int a;
 	recv_mx.lock();
 	a = socketfd.size();
@@ -88,12 +178,50 @@ inline void server_thread::add_thread(){
 			}
 		}
 	}
-	in_execution.push_back(true);
+	socketfd.push_back(-1);
+	in_execution.push_back(1);
 	raw_msg.push_back("");
 	thread_list.push_back(nullptr);
 	thread_list[a] = new std::thread(execute,a);
 	++alive_thread;
-	socketfd.push_back(-1);
+	recv_mx.unlock();
+}
+
+template<>
+inline void server_thread<SSL*>::add_thread(){
+	short int a;
+	recv_mx.lock();
+	a = socketfd.size();
+	if(a>0){
+		--a;
+		for(;a>=0;--a){
+			if(thread_list[a]==nullptr){
+				socketfd[a] = SSL_new(ctx);
+				thread_list[a] = new std::thread(execute,a);
+				++alive_thread;
+				break;
+			}
+		}
+		if(a>=0){
+			recv_mx.unlock();
+			return;
+		}
+		else{
+			a = socketfd.size();
+			if(max_amount>0){
+				if(a>=max_amount){
+					recv_mx.unlock();
+					return;
+				}
+			}
+		}
+	}
+	socketfd.push_back(SSL_new(ctx));
+	in_execution.push_back(1);
+	raw_msg.push_back("");
+	thread_list.push_back(nullptr);
+	thread_list[a] = new std::thread(execute,a);
+	++alive_thread;
 	recv_mx.unlock();
 }
 

@@ -2,7 +2,6 @@
 #define socket_server_h
 #include <hast_web/tcp_config.h>
 #include <hast_web/server_thread.h>
-#include <hast_web/crypto.h>
 #include <sys/poll.h>
 #include <cstring>
 #include <map>
@@ -25,7 +24,8 @@ enum WebSocketFrameType {
 	PONG_FRAME=0x1A
 };
 
-class socket_server : public tcp_config, public server_thread{
+template<class sock_T>
+class socket_server : public tcp_config, public server_thread<sock_T>{
 protected:
 	struct sockaddr_storage client_addr;
 	socklen_t client_addr_size;
@@ -37,10 +37,10 @@ protected:
 	int host_socket {0};
 	
 	std::mutex waiting_mx;
-
+	
+	void upgrade(std::string &headers);
 	inline void close_socket(const int socket_index);
 	inline void recv_epoll();
-	void upgrade(std::string &headers);
 	WebSocketFrameType getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length);
 	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
 	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
@@ -48,12 +48,9 @@ public:
 	socket_server();
 	~socket_server();
 	std::function<void(const int)> on_close {nullptr};
-	std::function<void(const int)> on_open {nullptr};
-	bool init(hast::tcp_socket::port port, short int unsigned max);
+	bool init(hast::tcp_socket::port port, short int unsigned max = 0);
 	bool msg_recv(const short int thread_index);
-	void start_accept();
 	void done(const short int thread_index);
-	int get_socket(short int thread_index);
 };
 
 #include <hast_web/socket_server.cpp>
