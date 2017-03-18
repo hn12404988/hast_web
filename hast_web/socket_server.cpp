@@ -1,16 +1,63 @@
-socket_server::socket_server(){
+template<class sock_T>
+socket_server<sock_T>::socket_server(){
+	reset_addr(hast::tcp_socket::SERVER);
 	client_addr_size = sizeof(client_addr);
 	epollfd = epoll_create1(0);
 	ev.events = EPOLLIN;
 	ev_tmp.events = EPOLLHUP;
 }
 
-socket_server::~socket_server(){
+template<class sock_T>
+socket_server<sock_T>::~socket_server(){
 	close(epollfd);
 }
 
-bool socket_server::init(hast::tcp_socket::port port, short int unsigned max){
-	max_amount = max;
+template<class sock_T>
+void socket_server<sock_T>::upgrade(std::string &headers){
+	std::string key,value;
+	size_t msg_len {headers.length()};
+	int tmp,tmp_max;
+	for(size_t i=0;i<msg_len;++i){
+		if(headers[i]=='\n'){
+			if(i+1==msg_len){
+				break;
+			}
+			if(headers[i-1]=='\r'){
+				key = headers.substr(0,i-1);
+			}
+			else{
+				key = headers.substr(0,i);
+			}
+			tmp_max = key.length();
+			for(tmp=0;tmp<tmp_max;++tmp){
+				if(key[tmp]==':' && key[tmp+1]==' '){
+					value = key.substr(tmp+2);
+					key = key.substr(0,tmp);
+					break;
+				}
+			}
+			if(key=="Sec-WebSocket-Key"){
+				value.append("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+				headers.clear();
+				headers.append("HTTP/1.1 101 Switching Protocols\r\n");
+				headers.append("Server: hast_ws_server\r\n");
+				headers.append("Upgrade: websocket\r\n");
+				headers.append("Connection: Upgrade\r\nSec-WebSocket-Accept: ");
+				headers.append(Crypto::Base64::encode(Crypto::sha1(value)));
+				headers.append("\r\n\r\n");
+				return;
+			}
+			headers = headers.substr(i+1);
+			msg_len = headers.length();
+			i = 0;
+		}
+	}
+	headers.clear();
+}
+
+template<class sock_T>
+bool socket_server<sock_T>::init(hast::tcp_socket::port port, short int unsigned max){
+	server_thread<sock_T>::max_amount = max;
 	if(getaddrinfo(NULL, port.c_str(), &hints, &res)!=0){
 		return false;
 	}
@@ -43,53 +90,57 @@ bool socket_server::init(hast::tcp_socket::port port, short int unsigned max){
 	}
 }
 
-void socket_server::done(const short int thread_index){
-	if(recv_thread==thread_index){
-		recv_thread = -1;
-	}
-	in_execution[thread_index] = true;
-	socketfd[thread_index] = -2;
+template<class sock_T>
+void socket_server<sock_T>::done(const short int thread_index){
+	/**
+	 * This is here for threads break msg_recv loop accidentally.
+	 * Threads are only allowed to break msg_recv loop by get 'false' from it.
+	 **/
+	server_thread<sock_T>::in_execution[thread_index] = 2;
 }
 
-inline void socket_server::recv_epoll(){
+template<>
+inline void socket_server<int>::recv_epoll(){
+	short int a,b;
 	while(got_it==false){}
 	for(;;){
 		resize();
 		waiting_mx.lock();
 		for(;;){
-			i = epoll_wait(epollfd, events, MAX_EVENTS, 3500);
-			if(i>0){
+			a = epoll_wait(epollfd, events, MAX_EVENTS, 3500);
+			if(a>0){
 				waiting_mx.unlock();
 				break;
 			}
 		}
-		j = i - alive_thread + 1;
-		for(;j>0;--j){
+		b = a - alive_thread + 1;
+		for(;b>0;--b){
 			add_thread();
 		}
-		--i;
-		for(;i>=0;--i){
-			if(events[i].events!=1){
-				close_socket(events[i].data.fd);
+		--a;
+		for(;a>=0;--a){
+			if(events[a].events!=1){
+				close_socket(events[a].data.fd);
 				continue;
 			}
-			get_thread();
-			if(j==-1){
+			b = get_thread();
+			if(b==-1){
 				break;
 			}
 			got_it = false;
-			socketfd[j] = events[i].data.fd;
-			ev_tmp.data.fd = events[i].data.fd;
-			epoll_ctl(epollfd, EPOLL_CTL_MOD, events[i].data.fd,&ev_tmp);
-			if(j!=recv_thread){
+			in_execution[b] = 1;
+			socketfd[b] = events[a].data.fd;
+			ev_tmp.data.fd = events[a].data.fd;
+			epoll_ctl(epollfd, EPOLL_CTL_MOD, events[a].data.fd,&ev_tmp);
+			if(b!=recv_thread){
 				while(got_it==false){}
 			}
 		}
-		if(i>=0){
+		if(a>=0){
 			break;
 		}
 		else{
-			if(socketfd[recv_thread]>=0){
+			if(b==recv_thread){
 				break;
 			}
 		}
@@ -97,15 +148,67 @@ inline void socket_server::recv_epoll(){
 	recv_thread = -1;
 }
 
-bool socket_server::msg_recv(const short int thread_index){
+template<>
+inline void socket_server<SSL*>::recv_epoll(){
+	short int a,b;
+	while(got_it==false){}
+	for(;;){
+		resize();
+		waiting_mx.lock();
+		for(;;){
+			a = epoll_wait(epollfd, events, MAX_EVENTS, 3500);
+			if(a>0){
+				waiting_mx.unlock();
+				break;
+			}
+		}
+		b = a - alive_thread + 1;
+		for(;b>0;--b){
+			add_thread();
+		}
+		--a;
+		for(;a>=0;--a){
+			if(events[a].events!=1){
+				close_socket(events[a].data.fd);
+				continue;
+			}
+			b = get_thread();
+			if(b==-1){
+				break;
+			}
+			got_it = false;
+			in_execution[b] = 1;
+			SSL_set_fd(socketfd[b],events[a].data.fd);
+			ev_tmp.data.fd = events[a].data.fd;
+			epoll_ctl(epollfd, EPOLL_CTL_MOD, events[a].data.fd,&ev_tmp);
+			if(b!=recv_thread){
+				while(got_it==false){}
+			}
+		}
+		if(a>=0){
+			break;
+		}
+		else{
+			if(b==recv_thread){
+				break;
+			}
+		}
+	}
+	recv_thread = -1;
+}
+
+template<>
+bool socket_server<int>::msg_recv(const short int thread_index){
+	int l;
+	l = socketfd[thread_index];
+	socketfd[thread_index] = -1;
+	if(l>=0){
+		ev.data.fd = l;
+		epoll_ctl(epollfd, EPOLL_CTL_MOD, l,&ev);
+	}
 	for(;;){
 		raw_msg[thread_index].clear();
-		if(socketfd[thread_index]>=0){
-			ev.data.fd = socketfd[thread_index];
-			epoll_ctl(epollfd, EPOLL_CTL_MOD, socketfd[thread_index],&ev);
-			socketfd[thread_index] = -1;
-		}
-		in_execution[thread_index] = false;
+		in_execution[thread_index] = 0;
 		recv_mx.lock();
 		if(recv_thread==-1){
 			recv_thread = thread_index;
@@ -116,10 +219,10 @@ bool socket_server::msg_recv(const short int thread_index){
 			recv_mx.unlock();
 		}
 		for(;;){
-			if(socketfd[thread_index]>=0){
+			if(in_execution[thread_index]==1){
 				break;
 			}
-			else if(socketfd[thread_index]==-2){
+			else if(in_execution[thread_index]==2){
 				return false;
 			}
 			else if(recv_thread==-1){
@@ -130,11 +233,10 @@ bool socket_server::msg_recv(const short int thread_index){
 				waiting_mx.unlock();
 			}
 		}
-		if(socketfd[thread_index]==-1){
+		if(in_execution[thread_index]==0){
 			continue;
 		}
 		got_it = true;
-		int l;
 		unsigned char new_char[transport_size];
 		std::basic_string<unsigned char> raw_str;
 		for(;;){
@@ -156,155 +258,106 @@ bool socket_server::msg_recv(const short int thread_index){
 		}
 		else{
 			close_socket(socketfd[thread_index]);
+			socketfd[thread_index] = -1;
 			continue;
 		}
 		if(raw_msg[thread_index]==""){
 			//client close connection.
 			close_socket(socketfd[thread_index]);
+			socketfd[thread_index] = -1;
 			continue;
 		}
-		in_execution[thread_index] = true;
 		return true;
 	}
 }
 
-inline void socket_server::close_socket(const int socket_index){
+template<>
+bool socket_server<SSL*>::msg_recv(const short int thread_index){
+	int l;
+	l = SSL_get_fd(socketfd[thread_index]);
+	if(l>=0){
+		ev.data.fd = l;
+		epoll_ctl(epollfd, EPOLL_CTL_MOD, l,&ev);
+	}
+	for(;;){
+		raw_msg[thread_index].clear();
+		in_execution[thread_index] = 0;
+		recv_mx.lock();
+		if(recv_thread==-1){
+			recv_thread = thread_index;
+			recv_mx.unlock();
+			recv_epoll();
+		}
+		else{
+			recv_mx.unlock();
+		}
+		for(;;){
+			if(in_execution[thread_index]==1){
+				break;
+			}
+			else if(in_execution[thread_index]==2){
+				return false;
+			}
+			else if(recv_thread==-1){
+				break;
+			}
+			else{
+				waiting_mx.lock();
+				waiting_mx.unlock();
+			}
+		}
+		if(in_execution[thread_index]==0){
+			continue;
+		}
+		got_it = true;
+		unsigned char new_char[transport_size];
+		std::basic_string<unsigned char> raw_str;
+		for(;;){
+			l = SSL_read(socketfd[thread_index], new_char, transport_size);
+			if(l>0){
+				l += raw_str.length();
+				raw_str.append(new_char);
+				raw_str.resize(l);
+				l = 0;
+			}
+			else{
+				break;
+			}
+		}
+		l = raw_str.length()+1;
+		unsigned char u_msg[l];
+		if(getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l)==TEXT_FRAME){
+			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
+		}
+		else{
+			close_socket(SSL_get_fd(socketfd[thread_index]));
+			continue;
+		}
+		if(raw_msg[thread_index]==""){
+			//client close connection.
+			close_socket(SSL_get_fd(socketfd[thread_index]));
+			continue;
+		}
+		return true;
+	}
+}
+
+template<class sock_T>
+inline void socket_server<sock_T>::close_socket(const int socket_index){
+	if(socket_index<0){
+		return;
+	}
 	if(on_close!=nullptr){
 		on_close(socket_index);
 	}
-	--alive_socket;
-	int a;
+	--server_thread<sock_T>::alive_socket;
 	epoll_ctl(epollfd, EPOLL_CTL_DEL, socket_index,nullptr);
 	shutdown(socket_index,SHUT_RDWR);
 	close(socket_index);
-	a = socketfd.size()-1;
-	for(;a>=0;--a){
-		if(socketfd[a]==socket_index){
-			break;
-		}
-	}
-	if(a>=0){
-		raw_msg[a].clear();
-		socketfd[a] = -1;
-	}
 }
 
-int socket_server::get_socket(short int thread_index){
-	return socketfd[thread_index];
-}
-
-void socket_server::start_accept(){
-	if(execute==nullptr){
-		return;
-	}
-	int l;
-	char new_char[transport_size];
-	std::string msg;
-	struct pollfd ufds;
-	ufds.events = POLLIN;
-	int new_socket {1};
-	while(new_socket>=0){
-		new_socket = accept4(host_socket, (struct sockaddr *)&client_addr, &client_addr_size,SOCK_NONBLOCK);
-		if(new_socket>0){
-			msg.clear();
-			ufds.fd = new_socket;
-			if(poll(&ufds,1,3000)<=0 || (ufds.revents & POLLIN)==false){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
-				continue;
-			}
-			for(;;){
-				l = recv(new_socket, new_char, transport_size, 0);
-				if(l>0){
-					l += msg.length();
-					msg.append(new_char);
-					msg.resize(l);
-					l = 0;
-				}
-				else{
-					break;
-				}
-			}
-			if(msg==""){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
-				continue;
-			}
-			upgrade(msg);
-			if(msg==""){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
-				continue;
-			}
-			ev.data.fd = new_socket;
-			if(epoll_ctl(epollfd, EPOLL_CTL_ADD, new_socket,&ev)==-1){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
-				continue;
-			}
-			send(new_socket, msg.c_str(), msg.length(),0);
-			if(on_open!=nullptr){
-				on_open(new_socket);
-			}
-			if(recv_thread==-1){
-				add_thread();
-			}
-			++alive_socket;
-		}
-	}
-}
-
-void socket_server::upgrade(std::string &headers){
-	std::string key,value;
-	size_t msg_len {headers.length()};
-	int j,j_max;
-	for(size_t i=0;i<msg_len;++i){
-		if(headers[i]=='\n'){
-			if(i+1==msg_len){
-				break;
-			}
-			if(headers[i-1]=='\r'){
-				key = headers.substr(0,i-1);
-			}
-			else{
-				key = headers.substr(0,i);
-			}
-			j_max = key.length();
-			for(j=0;j<j_max;++j){
-				if(key[j]==':' && key[j+1]==' '){
-					value = key.substr(j+2);
-					key = key.substr(0,j);
-					break;
-				}
-			}
-			if(key=="Sec-WebSocket-Key"){
-				value.append("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-				headers.clear();
-				headers.append("HTTP/1.1 101 Switching Protocols\r\n");
-				headers.append("Server: hast_ws_server\r\n");
-				headers.append("Upgrade: websocket\r\n");
-				headers.append("Connection: Upgrade\r\nSec-WebSocket-Accept: ");
-				headers.append(Crypto::Base64::encode(Crypto::sha1(value)));
-				headers.append("\r\n\r\n");
-				return;
-			}
-			/*
-			if(j==j_max){
-				ss["GET"] = key;
-			}
-			else{
-				ss[key] = value;
-			}
-			*/
-			headers = headers.substr(i+1);
-			msg_len = headers.length();
-			i = 0;
-		}
-	}
-	headers.clear();
-}
-
-int socket_server::makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_length, unsigned char* buffer, int buffer_size)
+template<class sock_T>
+int socket_server<sock_T>::makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_length, unsigned char* buffer, int buffer_size)
 {
 	int pos = 0;
 	int size = msg_length; 
@@ -338,7 +391,8 @@ int socket_server::makeFrameU(WebSocketFrameType frame_type, unsigned char* msg,
 	return (size+pos);
 }
 
-int socket_server::makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_length, char* buffer, int buffer_size)
+template<class sock_T>
+int socket_server<sock_T>::makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_length, char* buffer, int buffer_size)
 {
 	int pos = 0;
 	int size = msg_length; 
@@ -372,7 +426,8 @@ int socket_server::makeFrame(WebSocketFrameType frame_type, const char* msg, int
 	return (size+pos);
 }
 
-WebSocketFrameType socket_server::getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length)
+template<class sock_T>
+WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length)
 {
 	//printf("getTextFrame()\n");
 	if(in_length < 3) return INCOMPLETE_FRAME;
