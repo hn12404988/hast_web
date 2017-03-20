@@ -1,9 +1,14 @@
+void wss_server::reset_accept(int socket_index,SSL *ssl){
+	shutdown(socket_index,SHUT_RDWR);
+	close(socket_index);
+	SSL_free(ssl);
+}
+
 void wss_server::start_accept(){
-	if(execute==nullptr){
+	if(execute==nullptr || ctx==nullptr){
 		return;
 	}
-	SSL *ssl {nullptr};
-	ssl = SSL_new(ctx);
+	SSL *ssl {SSL_new(ctx)};
 	int l;
 	char new_char[transport_size];
 	std::string msg;
@@ -16,23 +21,53 @@ void wss_server::start_accept(){
 			msg.clear();
 			ufds.fd = new_socket;
 			if(poll(&ufds,1,3000)<=0 || (ufds.revents & POLLIN)==false){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
+				reset_accept(new_socket);
 				continue;
 			}
+			if(ssl==nullptr){
+				ssl = SSL_new(ctx);
+			}
 			l = SSL_set_fd(ssl, new_socket);
-			std::cout << "set: " << l << std::endl;
-			l = SSL_accept(ssl);
-			std::cout << "accept: " << l << std::endl;
-			if (l <= 0) {
-				l = SSL_get_error(ssl,l);
-				ERR_print_errors_fp(stderr);
+			for(;;){
+				l = SSL_accept(ssl);
+				if (l <= 0) {
+					l = SSL_get_error(ssl,l);
+					if (l == SSL_ERROR_WANT_READ){
+						//std::cout << "Wait for data to be read" << l << std::endl;
+						continue;
+					}
+					else if (l == SSL_ERROR_WANT_WRITE){
+						//std::cout << "Write data to continue" << l << std::endl;
+					}
+					else if (l == SSL_ERROR_SYSCALL){
+						//std::cout << "SSL_ERROR_SYSCALL" << l << std::endl;
+					}
+					else if(l == SSL_ERROR_SSL){
+						//std::cout << "SSL_ERROR_SSL" << l << std::endl;
+					}
+					else if (l == SSL_ERROR_ZERO_RETURN){
+						//std::cout << "Same as error" << l << std::endl;
+					}
+					//ERR_print_errors_fp(stderr);
+					reset_accept(new_socket,ssl);
+					ssl = nullptr;
+					l = -1;
+					break;
+				}
+				else{
+					break;
+				}
+			}
+			if(l==-1){
+				continue;
+			}
+			if(poll(&ufds,1,3000)<=0 || (ufds.revents & POLLIN)==false){
+				reset_accept(new_socket,ssl);
+				ssl = nullptr;
 				continue;
 			}
 			for(;;){
 				l = SSL_read(ssl, new_char, transport_size);
-				std::cout << "read: " << l << std::endl;
-				//l = recv(new_socket, new_char, transport_size, 0);
 				if(l>0){
 					l += msg.length();
 					msg.append(new_char);
@@ -40,33 +75,58 @@ void wss_server::start_accept(){
 					l = 0;
 				}
 				else{
+					/*
 					l = SSL_get_error(ssl,l);
-					std::cout << "read error: " << l << std::endl;
+					if (l == SSL_ERROR_WANT_READ){
+						std::cout << "Wait for data to be read" << l << std::endl;
+					}
+					else if (l == SSL_ERROR_WANT_WRITE){
+						std::cout << "Write data to continue" << l << std::endl;
+					}
+					else if (l == SSL_ERROR_SYSCALL){
+						std::cout << "SSL_ERROR_SYSCALL" << l << std::endl;
+					}
+					else if(l == SSL_ERROR_SSL){
+						std::cout << "SSL_ERROR_SSL" << l << std::endl;
+					}
+					else if (l == SSL_ERROR_ZERO_RETURN){
+						std::cout << "Same as error" << l << std::endl;
+					}
 					std::cout << "error queue: " << ERR_get_error()  << std::endl;
+					*/
 					break;
 				}
 			}
-			std::cout << "msg: " << msg << std::endl;
 			if(msg==""){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
+				reset_accept(new_socket,ssl);
+				ssl = nullptr;
 				continue;
 			}
 			upgrade(msg);
 			if(msg==""){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
+				reset_accept(new_socket,ssl);
+				ssl = nullptr;
 				continue;
 			}
 			ev.data.fd = new_socket;
 			if(epoll_ctl(epollfd, EPOLL_CTL_ADD, new_socket,&ev)==-1){
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
+				reset_accept(new_socket,ssl);
+				ssl = nullptr;
 				continue;
 			}
 			SSL_write(ssl, msg.c_str(), msg.length());
 			if(on_open!=nullptr){
 				on_open(ssl);
+			}
+			if((*ssl_map)[new_socket]!=nullptr){
+				close_socket(new_socket);
+				SSL_free(ssl);
+				ssl = nullptr;
+				continue;
+			}
+			else{
+				(*ssl_map)[new_socket] = ssl;
+				ssl = nullptr;
 			}
 			if(recv_thread==-1){
 				add_thread();

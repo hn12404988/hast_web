@@ -39,8 +39,8 @@ protected:
 	std::mutex waiting_mx;
 	
 	void upgrade(std::string &headers);
-	inline void close_socket(const int socket_index);
 	inline void recv_epoll();
+	void close_socket(const int socket_index);
 	WebSocketFrameType getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length);
 	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
 	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);

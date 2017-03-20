@@ -12,6 +12,40 @@ socket_server<sock_T>::~socket_server(){
 	close(epollfd);
 }
 
+template<>
+void socket_server<int>::close_socket(const int socket_index){
+	if(socket_index<0){
+		return;
+	}
+	if(on_close!=nullptr){
+		on_close(socket_index);
+	}
+	--alive_socket;
+	epoll_ctl(epollfd, EPOLL_CTL_DEL, socket_index,nullptr);
+	shutdown(socket_index,SHUT_RDWR);
+	close(socket_index);
+}
+
+template<>
+void socket_server<SSL*>::close_socket(const int socket_index){
+	if(socket_index<0){
+		return;
+	}
+	SSL* tmp_ssl;
+	tmp_ssl = (*ssl_map)[socket_index];
+	if(tmp_ssl!=nullptr){
+		SSL_free(tmp_ssl);
+	}
+	(*ssl_map)[socket_index] = nullptr;
+	if(on_close!=nullptr){
+		on_close(socket_index);
+	}
+	--alive_socket;
+	epoll_ctl(epollfd, EPOLL_CTL_DEL, socket_index,nullptr);
+	shutdown(socket_index,SHUT_RDWR);
+	close(socket_index);
+}
+
 template<class sock_T>
 void socket_server<sock_T>::upgrade(std::string &headers){
 	std::string key,value;
@@ -151,6 +185,7 @@ inline void socket_server<int>::recv_epoll(){
 template<>
 inline void socket_server<SSL*>::recv_epoll(){
 	short int a,b;
+	int c;
 	while(got_it==false){}
 	for(;;){
 		resize();
@@ -168,19 +203,27 @@ inline void socket_server<SSL*>::recv_epoll(){
 		}
 		--a;
 		for(;a>=0;--a){
+			c = events[a].data.fd;
 			if(events[a].events!=1){
-				close_socket(events[a].data.fd);
+				//std::cout << "bad event: " << c << std::endl;
+				close_socket(c);
 				continue;
 			}
 			b = get_thread();
 			if(b==-1){
 				break;
 			}
-			got_it = false;
-			in_execution[b] = 1;
-			SSL_set_fd(socketfd[b],events[a].data.fd);
+			if((*ssl_map)[c]==nullptr){
+				close_socket(c);
+				continue;
+			}
+			else{
+				socketfd[b] = (*ssl_map)[c];
+			}
 			ev_tmp.data.fd = events[a].data.fd;
 			epoll_ctl(epollfd, EPOLL_CTL_MOD, events[a].data.fd,&ev_tmp);
+			got_it = false;
+			in_execution[b] = 1;
 			if(b!=recv_thread){
 				while(got_it==false){}
 			}
@@ -200,13 +243,13 @@ inline void socket_server<SSL*>::recv_epoll(){
 template<>
 bool socket_server<int>::msg_recv(const short int thread_index){
 	int l;
-	l = socketfd[thread_index];
-	socketfd[thread_index] = -1;
-	if(l>=0){
-		ev.data.fd = l;
-		epoll_ctl(epollfd, EPOLL_CTL_MOD, l,&ev);
-	}
 	for(;;){
+		l = socketfd[thread_index];
+		socketfd[thread_index] = -1;
+		if(l>=0){
+			ev.data.fd = l;
+			epoll_ctl(epollfd, EPOLL_CTL_MOD, l,&ev);
+		}
 		raw_msg[thread_index].clear();
 		in_execution[thread_index] = 0;
 		recv_mx.lock();
@@ -274,19 +317,24 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 template<>
 bool socket_server<SSL*>::msg_recv(const short int thread_index){
 	int l;
-	l = SSL_get_fd(socketfd[thread_index]);
-	if(l>=0){
-		ev.data.fd = l;
-		epoll_ctl(epollfd, EPOLL_CTL_MOD, l,&ev);
-	}
 	for(;;){
+		if(socketfd[thread_index]!=nullptr){
+			l = SSL_get_fd(socketfd[thread_index]);
+			if(l>=0){
+				ev.data.fd = l;
+				epoll_ctl(epollfd, EPOLL_CTL_MOD, l,&ev);
+			}
+			socketfd[thread_index] = nullptr;
+		}
 		raw_msg[thread_index].clear();
 		in_execution[thread_index] = 0;
 		recv_mx.lock();
 		if(recv_thread==-1){
+			//std::cout << "start recv: " << thread_index << std::endl;
 			recv_thread = thread_index;
 			recv_mx.unlock();
 			recv_epoll();
+			//std::cout << "end recv: " << thread_index << std::endl;
 		}
 		else{
 			recv_mx.unlock();
@@ -296,6 +344,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				break;
 			}
 			else if(in_execution[thread_index]==2){
+				//std::cout << "recycled: " << thread_index << std::endl;
 				return false;
 			}
 			else if(recv_thread==-1){
@@ -309,6 +358,8 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 		if(in_execution[thread_index]==0){
 			continue;
 		}
+		//std::cout << "got it thread: " << thread_index << std::endl;
+		//std::cout << "got it fd: " << SSL_get_fd(socketfd[thread_index]) << std::endl;
 		got_it = true;
 		unsigned char new_char[transport_size];
 		std::basic_string<unsigned char> raw_str;
@@ -321,8 +372,32 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				l = 0;
 			}
 			else{
+				//std::cout << "bad read: " << thread_index << std::endl;
+				/*
+				l = SSL_get_error(socketfd[thread_index],l);
+				if (l == SSL_ERROR_WANT_READ){
+					std::cout << "Wait for data to be read" << l << std::endl;
+				}
+				else if (l == SSL_ERROR_WANT_WRITE){
+					std::cout << "Write data to continue" << l << std::endl;
+				}
+				else if (l == SSL_ERROR_SYSCALL){
+					std::cout << "SSL_ERROR_SYSCALL" << l << std::endl;
+				}
+				else if(l == SSL_ERROR_SSL){
+					std::cout << "SSL_ERROR_SSL" << l << std::endl;
+				}
+				else if (l == SSL_ERROR_ZERO_RETURN){
+					std::cout << "Same as error" << l << std::endl;
+				}
+				ERR_print_errors_fp(stderr);
+				std::cout << "error queue: " << ERR_get_error()  << std::endl;
+				*/
 				break;
 			}
+		}
+		if(raw_str.length()==0){
+			//std::cout << "raw str 0: " << thread_index << std::endl;
 		}
 		l = raw_str.length()+1;
 		unsigned char u_msg[l];
@@ -330,30 +405,18 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
 		else{
+			//std::cout << "get frame bad: " << thread_index << std::endl;
 			close_socket(SSL_get_fd(socketfd[thread_index]));
 			continue;
 		}
 		if(raw_msg[thread_index]==""){
+			//std::cout << "raw msg 0: " << thread_index << std::endl;
 			//client close connection.
 			close_socket(SSL_get_fd(socketfd[thread_index]));
 			continue;
 		}
 		return true;
 	}
-}
-
-template<class sock_T>
-inline void socket_server<sock_T>::close_socket(const int socket_index){
-	if(socket_index<0){
-		return;
-	}
-	if(on_close!=nullptr){
-		on_close(socket_index);
-	}
-	--server_thread<sock_T>::alive_socket;
-	epoll_ctl(epollfd, EPOLL_CTL_DEL, socket_index,nullptr);
-	shutdown(socket_index,SHUT_RDWR);
-	close(socket_index);
 }
 
 template<class sock_T>

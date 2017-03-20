@@ -2,7 +2,9 @@ template<>
 server_thread<int>::server_thread(){}
 
 template<>
-server_thread<SSL*>::server_thread(){}
+server_thread<SSL*>::server_thread(){
+	ssl_map = new std::map<int,SSL*>;
+}
 
 template<>
 bool server_thread<SSL*>::wss_init(const char* crt, const char* key){
@@ -17,7 +19,7 @@ bool server_thread<SSL*>::wss_init(const char* crt, const char* key){
 		ERR_print_errors_fp(stderr);
 		return false;
 	}
-	SSL_CTX_set_ecdh_auto(ctx, 1);
+	//SSL_CTX_set_ecdh_auto(ctx, 1); This is removed in newer openssl.
 	/* Set the key and cert */
 	if (SSL_CTX_use_certificate_file(ctx, crt, SSL_FILETYPE_PEM) < 0) {
 		ERR_print_errors_fp(stderr);
@@ -33,6 +35,8 @@ bool server_thread<SSL*>::wss_init(const char* crt, const char* key){
 template<>
 server_thread<SSL*>::~server_thread(){
 	short int a;
+	std::map<int,SSL*>::iterator it;
+	std::map<int,SSL*>::iterator it_end;
 	a = thread_list.size()-1;
 	for(;a>=0;--a){
 		if(thread_list[a]!=nullptr){
@@ -41,10 +45,13 @@ server_thread<SSL*>::~server_thread(){
 				delete thread_list[a];
 			}
 		}
-		if(socketfd[a]!=nullptr){
-			SSL_free(socketfd[a]);
+	}
+	for(;it!=it_end;++it){
+		if(it->second!=nullptr){
+			SSL_free(it->second);
 		}
 	}
+	delete ssl_map;
 	if(ctx!=nullptr){
 		SSL_CTX_free(ctx);
 	}
@@ -66,8 +73,8 @@ server_thread<int>::~server_thread(){
 	}
 }
 
-template<>
-inline void server_thread<int>::resize(){
+template<class sock_T>
+inline void server_thread<sock_T>::resize(){
 	short int a,b;
 	a = alive_thread - alive_socket - 1;
 	if(a>0){
@@ -88,43 +95,10 @@ inline void server_thread<int>::resize(){
 				continue;
 			}
 			if(thread_list[b]->joinable()==true){
+				//std::cout << "KILL THREAD: " << b << std::endl;
 				thread_list[b]->join();
 				delete thread_list[b];
 				thread_list[b] = nullptr;
-				--alive_thread;
-				--a;
-			}
-		}
-	}
-}
-
-template<>
-inline void server_thread<SSL*>::resize(){
-	short int a,b;
-	a = alive_thread - alive_socket - 1;
-	if(a>0){
-		b = socketfd.size()-1;
-		for(;b>=0;--b){
-			if(recv_thread==b){
-				continue;
-			}
-			if(a==0){
-				break;
-			}
-			if(in_execution[b]==0 && thread_list[b]!=nullptr){
-				in_execution[b] = 2;
-			}
-			else if(in_execution[b]==2){
-			}
-			else{
-				continue;
-			}
-			if(thread_list[b]->joinable()==true){
-				thread_list[b]->join();
-				delete thread_list[b];
-				thread_list[b] = nullptr;
-				SSL_free(socketfd[b]);
-				socketfd[b] = nullptr;
 				--alive_thread;
 				--a;
 			}
@@ -196,7 +170,7 @@ inline void server_thread<SSL*>::add_thread(){
 		--a;
 		for(;a>=0;--a){
 			if(thread_list[a]==nullptr){
-				socketfd[a] = SSL_new(ctx);
+				//std::cout << "ADD THREAD OLD: " << a << std::endl;
 				thread_list[a] = new std::thread(execute,a);
 				++alive_thread;
 				break;
@@ -216,12 +190,13 @@ inline void server_thread<SSL*>::add_thread(){
 			}
 		}
 	}
-	socketfd.push_back(SSL_new(ctx));
+	socketfd.push_back(nullptr);
 	in_execution.push_back(1);
 	raw_msg.push_back("");
 	thread_list.push_back(nullptr);
 	thread_list[a] = new std::thread(execute,a);
 	++alive_thread;
 	recv_mx.unlock();
+	//std::cout << "ADD THREAD NEW: " << a << std::endl;
 }
 

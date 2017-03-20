@@ -3,6 +3,8 @@
 #include <hast_web/socket_server.h>
 
 class wss_server : public socket_server<SSL*>{
+protected:
+	void reset_accept(int socket_index,SSL *ssl = nullptr);
 public:
 	std::function<void(SSL*)> on_open {nullptr};
 	void start_accept();

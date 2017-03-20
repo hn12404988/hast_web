@@ -3,9 +3,9 @@
  * More details about class memebers or methods in wiki page of hast_web repository.
  **/
 #include <iostream>
-#include <hast_web/ws_server.h>
+#include <hast_web/wss_server.h>
 
-ws_server server;
+wss_server server;
 
 /**
  * When a new thread is created, it will start from this lambda function.
@@ -34,9 +34,9 @@ void on_close(const int socket_index){
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
-void on_open(const int socket_index){
+void on_open(SSL* ssl){
 	//A socket is opened. Do something here.
-	std::cout << "OPEN: " << socket_index << std::endl;
+	std::cout << "OPEN: " << server.get_socket_fd(ssl) << std::endl;
 	server.echo_back_msg(ssl,"Welcome!!");
 }
 
@@ -44,7 +44,7 @@ int main (int argc, char* argv[]){
 	server.execute = execute; //You must assign this member.
 	server.on_close = on_close; //Optional
 	server.on_open = on_open; //Optional
-	if(server.init("8888",1)==true){
+	if(server.init("/home/pi/tls/nginx.crt","/home/pi/tls/nginx.key","8888",3)==true){
 		server.start_accept();
 	}
 	return 0;

@@ -2,6 +2,7 @@
 #define server_thread_h
 #include <mutex>
 #include <thread>
+#include <map>
 #include <hast_web/crypto.h>
 
 template<class sock_T>
@@ -12,6 +13,7 @@ protected:
 	int alive_socket {0};
 	short int max_amount {0}, alive_thread{0}, recv_thread {-1};
 	std::mutex recv_mx;
+	std::map<int,sock_T> *ssl_map {nullptr};
 
 	/**
 	 * @in_execution [0] : waiting for request
