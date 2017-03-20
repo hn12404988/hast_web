@@ -22,7 +22,7 @@ auto execute = [&](const short int thread_index){
 		std::cout << "EXECUTE: " << fd << std::endl;
 		std::cout << "thread: " << thread_index << std::endl;
 		str = "Got it!!";
-		server.echo_back_msg(thread_index,str);
+		server.echo_back_msg(server.sockerfd[thread_index],str);
 	}
 	//This thread gonna be recycled. Maybe you need to free() or delete some variables.
 	server.done(thread_index);
@@ -37,7 +37,7 @@ void on_close(const int socket_index){
 void on_open(const int socket_index){
 	//A socket is opened. Do something here.
 	std::cout << "OPEN: " << socket_index << std::endl;
-	server.echo_back_msg(ssl,"Welcome!!");
+	server.echo_back_msg(socket_index,"Welcome!!");
 }
 
 int main (int argc, char* argv[]){
