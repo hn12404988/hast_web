@@ -297,6 +297,7 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 		l = raw_str.length()+1;
 		unsigned char u_msg[l];
 		if(getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l)==TEXT_FRAME){
+			u_msg[l-1] = '\0';
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
 		else{
@@ -402,6 +403,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 		l = raw_str.length()+1;
 		unsigned char u_msg[l];
 		if(getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l)==TEXT_FRAME){
+			u_msg[l-1] = '\0';
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
 		else{
