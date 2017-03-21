@@ -22,7 +22,7 @@ auto execute = [&](const short int thread_index){
 		std::cout << "EXECUTE: " << fd << std::endl;
 		std::cout << "thread: " << thread_index << std::endl;
 		str = "Got it!!";
-		server.echo_back_msg(server.sockerfd[thread_index],str);
+		server.echo_back_msg(thread_index,str);
 	}
 	//This thread gonna be recycled. Maybe you need to free() or delete some variables.
 	server.done(thread_index);
@@ -44,7 +44,7 @@ int main (int argc, char* argv[]){
 	server.execute = execute; //You must assign this member.
 	server.on_close = on_close; //Optional
 	server.on_open = on_open; //Optional
-	if(server.init("8888",1)==true){
+	if(server.init("8888",3)==true){
 		server.start_accept();
 	}
 	return 0;

@@ -44,7 +44,7 @@ int main (int argc, char* argv[]){
 	server.execute = execute; //You must assign this member.
 	server.on_close = on_close; //Optional
 	server.on_open = on_open; //Optional
-	if(server.init("/home/pi/tls/nginx.crt","/home/pi/tls/nginx.key","8888",3)==true){
+	if(server.init("/home/tls/server.crt","/home/tls/server.key","8888",3)==true){
 		server.start_accept();
 	}
 	return 0;
