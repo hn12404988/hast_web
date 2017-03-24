@@ -5,6 +5,7 @@
 #include <sys/poll.h>
 #include <cstring>
 #include <map>
+#include <list>
 
 #define MAX_EVENTS 10
 enum WebSocketFrameType {
@@ -16,6 +17,10 @@ enum WebSocketFrameType {
 
 	INCOMPLETE_TEXT_FRAME=0x01,
 	INCOMPLETE_BINARY_FRAME=0x02,
+	OVERSIZE_TEXT_FRAME=0x03,
+	OVERSIZE_BINARY_FRAME=0x04,
+	CONTIN_TEXT_FRAME=0x05,
+	CONTIN_BINARY_FRAME=0x06,
 
 	TEXT_FRAME=0x81,
 	BINARY_FRAME=0x82,
@@ -35,9 +40,11 @@ protected:
 	const int transport_size{100};
 	struct epoll_event ev,ev_tmp, events[MAX_EVENTS];
 	int host_socket {0};
+	std::map<short int,std::list<std::string>* > pending;
 	
 	std::mutex waiting_mx;
-	
+
+	void clear_pending(short int thread_index);
 	void upgrade(std::string &headers);
 	inline void recv_epoll();
 	void close_socket(const int socket_index);

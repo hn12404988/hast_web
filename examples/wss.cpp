@@ -21,7 +21,7 @@ auto execute = [&](const short int thread_index){
 		std::cout << "msg: " << server.raw_msg[thread_index] << std::endl;
 		std::cout << "EXECUTE: " << fd << std::endl;
 		std::cout << "thread: " << thread_index << std::endl;
-		str = "Got it!!";
+		str = "{\"reply\":\"Got it!!\"}";
 		server.echo_back_msg(thread_index,str);
 	}
 	//This thread gonna be recycled. Maybe you need to free() or delete some variables.
