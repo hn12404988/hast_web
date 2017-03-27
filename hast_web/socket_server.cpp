@@ -296,19 +296,22 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 		unsigned char new_char[transport_size];
 		std::basic_string<unsigned char> raw_str;
 		for(;;){
-			l = recv(socketfd[thread_index], new_char, transport_size, 0);
+			l = recv(socketfd[thread_index], new_char, transport_size, MSG_WAITALL);
 			if(l>0){
 				l += raw_str.length();
 				raw_str.append(new_char);
 				raw_str.resize(l);
-				l = 0;
 			}
 			else{
 				break;
 			}
 		}
-		
-		l = raw_str.length()+1;
+		if(l<0 || raw_str.length()==0){
+			clear_pending(thread_index);
+			close_socket(socketfd[thread_index]);
+			continue;
+		}
+		l = raw_str.length();
 		int type;
 		unsigned char u_msg[l];
 		type = getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l);
@@ -421,9 +424,17 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				l += raw_str.length();
 				raw_str.append(new_char);
 				raw_str.resize(l);
-				l = 0;
 			}
-			else{
+			else if(l==0){
+				l = SSL_get_error(socketfd[thread_index],l);
+				if (l == SSL_ERROR_WANT_READ){
+					std::cout << "Wait for data to be read" << std::endl;
+					continue;
+				}
+				else{
+					l = -1;
+					break;
+				}
 				//std::cout << "bad read: " << thread_index << std::endl;
 				/*
 				l = SSL_get_error(socketfd[thread_index],l);
@@ -445,11 +456,15 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				ERR_print_errors_fp(stderr);
 				std::cout << "error queue: " << ERR_get_error()  << std::endl;
 				*/
+			}
+			else{
 				break;
 			}
 		}
-		if(raw_str.length()==0){
-			//std::cout << "raw str 0: " << thread_index << std::endl;
+		if(l<0 || raw_str.length()==0){
+			clear_pending(thread_index);
+			close_socket(SSL_get_fd(socketfd[thread_index]));
+			continue;
 		}
 		l = raw_str.length();
 		int type;
