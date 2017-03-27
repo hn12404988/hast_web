@@ -298,9 +298,7 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 		for(;;){
 			l = recv(socketfd[thread_index], new_char, transport_size, MSG_WAITALL);
 			if(l>0){
-				l += raw_str.length();
-				raw_str.append(new_char);
-				raw_str.resize(l);
+				raw_str.append(new_char,l);
 			}
 			else{
 				break;
@@ -314,7 +312,7 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 		l = raw_str.length();
 		int type;
 		unsigned char u_msg[l];
-		type = getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l);
+		type = getFrame(&raw_str[0], l, u_msg, l, &l);
 		if(type==TEXT_FRAME){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
@@ -323,7 +321,7 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 			for(;;){
 				raw_str = raw_str.substr(l);
 				l = raw_str.length();
-				type = getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l);
+				type = getFrame(&raw_str[0], l, u_msg, l, &l);
 				if(type==TEXT_FRAME || type==CONTIN_TEXT_FRAME){
 					if(pending[thread_index]==nullptr){
 						pending[thread_index] = new std::list<std::string>;
@@ -421,9 +419,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 		for(;;){
 			l = SSL_read(socketfd[thread_index], new_char, transport_size);
 			if(l>0){
-				l += raw_str.length();
-				raw_str.append(new_char);
-				raw_str.resize(l);
+				raw_str.append(new_char,l);
 			}
 			else if(l==0){
 				l = SSL_get_error(socketfd[thread_index],l);
@@ -469,7 +465,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 		l = raw_str.length();
 		int type;
 		unsigned char u_msg[l];
-		type = getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l);
+		type = getFrame(&raw_str[0], l, u_msg, l, &l);
 		if(type==TEXT_FRAME){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
@@ -478,7 +474,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 			for(;;){
 				raw_str = raw_str.substr(l);
 				l = raw_str.length();
-				type = getFrame(&raw_str[0], raw_str.length(), u_msg, l, &l);
+				type = getFrame(&raw_str[0], l, u_msg, l, &l);
 				if(type==TEXT_FRAME || type==CONTIN_TEXT_FRAME){
 					if(pending[thread_index]==nullptr){
 						pending[thread_index] = new std::list<std::string>;
