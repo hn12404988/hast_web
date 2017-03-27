@@ -306,7 +306,7 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 				break;
 			}
 		}
-		if(l<0 || raw_str.length()==0){
+		if(l<0 && raw_str.length()==0){
 			clear_pending(thread_index);
 			close_socket(socketfd[thread_index]);
 			continue;
@@ -428,7 +428,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 			else if(l==0){
 				l = SSL_get_error(socketfd[thread_index],l);
 				if (l == SSL_ERROR_WANT_READ){
-					std::cout << "Wait for data to be read" << std::endl;
+					//std::cout << "Wait for data to be read" << std::endl;
 					continue;
 				}
 				else{
@@ -461,7 +461,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				break;
 			}
 		}
-		if(l<0 || raw_str.length()==0){
+		if(l<0 && raw_str.length()==0){
 			clear_pending(thread_index);
 			close_socket(SSL_get_fd(socketfd[thread_index]));
 			continue;
