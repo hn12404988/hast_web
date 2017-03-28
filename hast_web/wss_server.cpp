@@ -119,7 +119,7 @@ void wss_server::start_accept(){
 				on_open(ssl);
 			}
 			if((*ssl_map)[new_socket]!=nullptr){
-				close_socket(new_socket);
+				close_socket(new_socket,0);
 				SSL_free(ssl);
 				ssl = nullptr;
 				continue;

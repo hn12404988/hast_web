@@ -6,11 +6,13 @@
 #include <cstring>
 #include <map>
 #include <list>
+#include <iostream> //delete this when ready for production
 
 #define MAX_EVENTS 10
 enum WebSocketFrameType {
 	ERROR_FRAME=0xFF00,
-	INCOMPLETE_FRAME=0xFE00,
+	INCOMPLETE_FRAME_SMALL=0xFE00,
+	INCOMPLETE_FRAME_LARGE=0xFE01,
 
 	OPENING_FRAME=0x3300,
 	CLOSING_FRAME=0x3400,
@@ -44,11 +46,12 @@ protected:
 	
 	std::mutex waiting_mx;
 
+	void echo_type(int type); //delete this when ready for production
 	void clear_pending(short int thread_index);
 	void upgrade(std::string &headers);
 	inline void recv_epoll();
-	void close_socket(const int socket_index);
-	WebSocketFrameType getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length);
+	void close_socket(const int socket_index, const int line); //remove line when ready for production
+	WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* out_length);
 	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
 	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
 public:

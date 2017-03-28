@@ -13,10 +13,11 @@ socket_server<sock_T>::~socket_server(){
 }
 
 template<>
-void socket_server<int>::close_socket(const int socket_index){
+void socket_server<int>::close_socket(const int socket_index, const int line){
 	if(socket_index<0){
 		return;
 	}
+	std::cout << "closed by: " << line << std::endl;
 	if(on_close!=nullptr){
 		on_close(socket_index);
 	}
@@ -27,10 +28,11 @@ void socket_server<int>::close_socket(const int socket_index){
 }
 
 template<>
-void socket_server<SSL*>::close_socket(const int socket_index){
+void socket_server<SSL*>::close_socket(const int socket_index, const int line){
 	if(socket_index<0){
 		return;
 	}
+	std::cout << "closed by: " << line << std::endl;
 	SSL* tmp_ssl;
 	tmp_ssl = (*ssl_map)[socket_index];
 	if(tmp_ssl!=nullptr){
@@ -156,7 +158,7 @@ inline void socket_server<int>::recv_epoll(){
 		for(;a>=0;--a){
 			c = events[a].data.fd;
 			if(events[a].events!=1){
-				close_socket(c);
+				close_socket(c,__LINE__);
 				continue;
 			}
 			b = get_thread();
@@ -208,7 +210,7 @@ inline void socket_server<SSL*>::recv_epoll(){
 			c = events[a].data.fd;
 			if(events[a].events!=1){
 				//std::cout << "bad event: " << c << std::endl;
-				close_socket(c);
+				close_socket(c,__LINE__);
 				continue;
 			}
 			b = get_thread();
@@ -216,7 +218,7 @@ inline void socket_server<SSL*>::recv_epoll(){
 				break;
 			}
 			if((*ssl_map)[c]==nullptr){
-				close_socket(c);
+				close_socket(c,__LINE__);
 				continue;
 			}
 			else{
@@ -304,24 +306,25 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 				break;
 			}
 		}
-		if(l<0 && raw_str.length()==0){
+		if(l<=0 && raw_str.length()==0){
 			clear_pending(thread_index);
-			close_socket(socketfd[thread_index]);
+			close_socket(socketfd[thread_index],__LINE__);
 			continue;
 		}
-		l = raw_str.length();
+		size_t len;
+		len = raw_str.length();
 		int type;
-		unsigned char u_msg[l];
-		type = getFrame(&raw_str[0], l, u_msg, l, &l);
+		unsigned char u_msg[len];
+		type = getFrame(&raw_str[0], len, u_msg, len, &len);
 		if(type==TEXT_FRAME){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
 		else if(type==CONTIN_TEXT_FRAME){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 			for(;;){
-				raw_str = raw_str.substr(l);
-				l = raw_str.length();
-				type = getFrame(&raw_str[0], l, u_msg, l, &l);
+				raw_str = raw_str.substr(len);
+				len = raw_str.length();
+				type = getFrame(&raw_str[0], len, u_msg, len, &len);
 				if(type==TEXT_FRAME || type==CONTIN_TEXT_FRAME){
 					if(pending[thread_index]==nullptr){
 						pending[thread_index] = new std::list<std::string>;
@@ -333,7 +336,7 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 				}
 				else{
 					clear_pending(thread_index);
-					close_socket(socketfd[thread_index]);
+					close_socket(socketfd[thread_index],__LINE__);
 					break;
 				}
 			}
@@ -342,13 +345,13 @@ bool socket_server<int>::msg_recv(const short int thread_index){
 			}
 		}
 		else{
-			close_socket(socketfd[thread_index]);
+			close_socket(socketfd[thread_index],__LINE__);
 			continue;
 		}
 		if(raw_msg[thread_index]==""){
 			//client close connection.
 			clear_pending(thread_index);
-			close_socket(socketfd[thread_index]);
+			close_socket(socketfd[thread_index],__LINE__);
 			continue;
 		}
 		return true;
@@ -457,24 +460,27 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				break;
 			}
 		}
-		if(l<0 && raw_str.length()==0){
+		if(l<=0 && raw_str.length()==0){
 			clear_pending(thread_index);
-			close_socket(SSL_get_fd(socketfd[thread_index]));
+			close_socket(SSL_get_fd(socketfd[thread_index]),__LINE__);
 			continue;
 		}
-		l = raw_str.length();
+		size_t len;
+		len = raw_str.length();
+		std::cout  << "raw_str len: " << len << std::endl;
 		int type;
-		unsigned char u_msg[l];
-		type = getFrame(&raw_str[0], l, u_msg, l, &l);
+		unsigned char u_msg[len];
+		type = getFrame(&raw_str[0], len, u_msg, len, &len);
+		std::cout  << "raw_msg len: " << len << std::endl;
 		if(type==TEXT_FRAME){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 		}
 		else if(type==CONTIN_TEXT_FRAME){
 			raw_msg[thread_index] = reinterpret_cast<char*>(u_msg);
 			for(;;){
-				raw_str = raw_str.substr(l);
-				l = raw_str.length();
-				type = getFrame(&raw_str[0], l, u_msg, l, &l);
+				raw_str = raw_str.substr(len);
+				len = raw_str.length();
+				type = getFrame(&raw_str[0], len, u_msg, len, &len);
 				if(type==TEXT_FRAME || type==CONTIN_TEXT_FRAME){
 					if(pending[thread_index]==nullptr){
 						pending[thread_index] = new std::list<std::string>;
@@ -486,7 +492,7 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 				}
 				else{
 					clear_pending(thread_index);
-					close_socket(SSL_get_fd(socketfd[thread_index]));
+					close_socket(SSL_get_fd(socketfd[thread_index]),__LINE__);
 					break;
 				}
 			}
@@ -496,14 +502,15 @@ bool socket_server<SSL*>::msg_recv(const short int thread_index){
 		}
 		else{
 			//std::cout << "get frame bad: " << thread_index << std::endl;
-			close_socket(SSL_get_fd(socketfd[thread_index]));
+			echo_type(type);
+			close_socket(SSL_get_fd(socketfd[thread_index]),__LINE__);
 			continue;
 		}
 		if(raw_msg[thread_index]==""){
 			//std::cout << "raw msg 0: " << thread_index << std::endl;
 			//client close connection.
 			clear_pending(thread_index);
-			close_socket(SSL_get_fd(socketfd[thread_index]));
+			close_socket(SSL_get_fd(socketfd[thread_index]),__LINE__);
 			continue;
 		}
 		return true;
@@ -581,10 +588,10 @@ int socket_server<sock_T>::makeFrame(WebSocketFrameType frame_type, const char* 
 }
 
 template<class sock_T>
-WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int in_length, unsigned char* out_buffer, int out_size, int* out_length)
+WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* out_length)
 {
 	//printf("getTextFrame()\n");
-	if(in_length < 3) return INCOMPLETE_FRAME;
+	if(in_length < 3) return INCOMPLETE_FRAME_SMALL;
 
 	unsigned char msg_opcode = in_buffer[0] & 0x0F;
 	unsigned char msg_fin = (in_buffer[0] >> 7) & 0x01;
@@ -592,9 +599,9 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int
 
 	// *** message decoding 
 
-	int payload_length = 0;
-	int pos = 2;
-	int length_field = in_buffer[1] & (~0x80);
+	size_t payload_length = 0;
+	short int pos = 2;
+	short int length_field = in_buffer[1] & (~0x80);
 	unsigned int mask = 0;
 
 	//printf("IN:"); for(int i=0; i<20; i++) printf("%02x ",buffer[i]); printf("\n");
@@ -603,16 +610,20 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int
 		payload_length = length_field;
 	}
 	else if(length_field == 126) { //msglen is 16bit!
-		payload_length = in_buffer[2] + (in_buffer[3]<<8);
+		//payload_length = in_buffer[2] + (in_buffer[3]<<8);
+		payload_length = ((in_buffer[2]) << 8) | in_buffer[3];
 		pos += 2;
 	}
 	else if(length_field == 127) { //msglen is 64bit!
-		payload_length = in_buffer[2] + (in_buffer[3]<<8); 
+		payload_length = ((in_buffer[2]) << 56) | ((in_buffer[3]) << 48) | ((in_buffer[4]) << 40) | ((in_buffer[5]) << 32) | ((in_buffer[6]) << 24) | ((in_buffer[7]) << 16) | ((in_buffer[8]) << 8) | in_buffer[9]; 
 		pos += 8;
 	}
 	//printf("PAYLOAD_LEN: %08x\n", payload_length);
 	if(in_length < payload_length+pos) {
-		return INCOMPLETE_FRAME;
+		std::cout  << "in_length: " << in_length << std::endl;
+		std::cout  << "payload_length: " << payload_length << std::endl;
+		std::cout  << "pos: " << pos << std::endl;
+		return INCOMPLETE_FRAME_LARGE;
 	}
 
 	if(msg_masked) {
@@ -622,7 +633,7 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int
 
 		// unmask data:
 		unsigned char* c = in_buffer+pos;
-		for(int i=0; i<payload_length; i++) {
+		for(size_t i=0; i<payload_length; i++) {
 			c[i] = c[i] ^ ((unsigned char*)(&mask))[i%4];
 		}
 	}
@@ -634,13 +645,11 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int
 
 	memcpy((void*)out_buffer, (void*)(in_buffer+pos), payload_length);
 	out_buffer[payload_length] = 0;
-	//*out_length = payload_length+1;
-	*out_length = pos+payload_length;
-	pos = pos+payload_length;
+	*out_length = payload_length+1;
 	
 	//printf("TEXT: %s\n", out_buffer);
 	if(msg_opcode == 0x0){
-		if(in_length>pos){
+		if(in_length>pos+payload_length){
 			return CONTIN_TEXT_FRAME;
 		}
 		else{
@@ -648,7 +657,7 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int
 		}
 	}
 	else if(msg_opcode == 0x1){
-		if(in_length>pos){
+		if(in_length>pos+payload_length){
 			return CONTIN_TEXT_FRAME;
 		}
 		else{
@@ -656,7 +665,7 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, int
 		}
 	}
 	else if(msg_opcode == 0x2){
-		if(in_length>pos){
+		if(in_length>pos+payload_length){
 			return CONTIN_BINARY_FRAME;
 		}
 		else{
@@ -680,5 +689,59 @@ void socket_server<sock_T>::clear_pending(short int thread_index){
 		pending[thread_index]->clear();
 		delete pending[thread_index];
 		pending[thread_index] = nullptr;
+	}
+}
+
+template<class sock_T>
+void socket_server<sock_T>::echo_type(int type){
+	switch(type){
+	case ERROR_FRAME:
+		std::cout  << "ERROR_FRAME" << std::endl;
+		break;
+	case INCOMPLETE_FRAME_SMALL:
+		std::cout  << "INCOMPLETE_FRAME_SMALL" << std::endl;
+		break;
+	case INCOMPLETE_FRAME_LARGE:
+		std::cout  << "INCOMPLETE_FRAME_LARGE" << std::endl;
+		break;
+	case OPENING_FRAME:
+		std::cout  << "OPENING_FRAME" << std::endl;
+		break;
+	case CLOSING_FRAME:
+		std::cout  << "CLOSING_FRAME" << std::endl;
+		break;
+	case INCOMPLETE_TEXT_FRAME:
+		std::cout  << "INCOMPLETE_TEXT_FRAME" << std::endl;
+		break;
+	case INCOMPLETE_BINARY_FRAME:
+		std::cout  << "INCOMPLETE_BINARY_FRAME" << std::endl;
+		break;
+	case OVERSIZE_TEXT_FRAME:
+		std::cout  << "OVERSIZE_TEXT_FRAME" << std::endl;
+		break;
+	case OVERSIZE_BINARY_FRAME:
+		std::cout  << "OVERSIZE_BINARY_FRAME" << std::endl;
+		break;
+	case CONTIN_TEXT_FRAME:
+		std::cout  << "CONTIN_TEXT_FRAME" << std::endl;
+		break;
+	case CONTIN_BINARY_FRAME:
+		std::cout  << "CONTIN_BINARY_FRAME" << std::endl;
+		break;
+	case TEXT_FRAME:
+		std::cout  << "TEXT_FRAME" << std::endl;
+		break;
+	case BINARY_FRAME:
+		std::cout  << "BINARY_FRAME" << std::endl;
+		break;
+	case PING_FRAME:
+		std::cout  << "PING_FRAME" << std::endl;
+		break;
+	case PONG_FRAME:
+		std::cout  << "PONG_FRAME" << std::endl;
+		break;
+	default:
+		std::cout  << "NULL TYPE" << std::endl;
+		break;
 	}
 }
