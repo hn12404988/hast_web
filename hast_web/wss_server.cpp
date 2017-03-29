@@ -119,7 +119,13 @@ void wss_server::start_accept(){
 				on_open(ssl);
 			}
 			if((*ssl_map)[new_socket]!=nullptr){
-				close_socket(new_socket,0);
+				std::cout << "closed by: wss_server.cpp" << std::endl;
+				if(on_close!=nullptr){
+					on_close(new_socket);
+				}
+				epoll_ctl(epollfd, EPOLL_CTL_DEL, new_socket,nullptr);
+				shutdown(new_socket,SHUT_RDWR);
+				close(new_socket);
 				SSL_free(ssl);
 				ssl = nullptr;
 				continue;

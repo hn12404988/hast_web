@@ -11,22 +11,25 @@
 #define MAX_EVENTS 10
 enum WebSocketFrameType {
 	ERROR_FRAME=0xFF00,
-	INCOMPLETE_FRAME_SMALL=0xFE00,
-	INCOMPLETE_FRAME_LARGE=0xFE01,
+	INCOMPLETE_FRAME=0xFE00,
 
 	OPENING_FRAME=0x3300,
 	CLOSING_FRAME=0x3400,
 
-	INCOMPLETE_TEXT_FRAME=0x01,
-	INCOMPLETE_BINARY_FRAME=0x02,
-	OVERSIZE_TEXT_FRAME=0x03,
-	OVERSIZE_BINARY_FRAME=0x04,
-	CONTIN_TEXT_FRAME=0x05,
-	CONTIN_BINARY_FRAME=0x06,
+	DONE_TEXT=0x01,
+	DONE_TEXT_BEHIND=0x02,
+	DONE_BINARY=0x03,
+	DONE_BINARY_BEHIND=0x04,
+	CONTIN_TEXT=0x05,
+	CONTIN_TEXT_BEHIND=0x06,
+	CONTIN_BINARY=0x07,
+	CONTIN_BINARY_BEHIND=0x08,
+	OVERSIZE_FRAME=0x09,
+	NO_MESSAGE=0x0A,
 
 	TEXT_FRAME=0x81,
 	BINARY_FRAME=0x82,
-
+	
 	PING_FRAME=0x19,
 	PONG_FRAME=0x1A
 };
@@ -46,12 +49,14 @@ protected:
 	
 	std::mutex waiting_mx;
 
-	void echo_type(int type); //delete this when ready for production
+	void echo_type(const int type); //delete this when ready for production
 	void clear_pending(short int thread_index);
 	void upgrade(std::string &headers);
+	void reset_recv(const short int thread_index);
+	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 	inline void recv_epoll();
-	void close_socket(const int socket_index, const int line); //remove line when ready for production
-	WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* out_length);
+	void close_socket(const short int thread_index, const int line); //remove line when ready for production
+	WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* data_length, size_t* resize_length);
 	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
 	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
 public:
@@ -59,7 +64,16 @@ public:
 	~socket_server();
 	std::function<void(const int)> on_close {nullptr};
 	bool init(hast::tcp_socket::port port, short int unsigned max = 0);
-	bool msg_recv(const short int thread_index);
+	bool msg_recv(const short int thread_index, bool partially = false);
+	bool partially_recv(const short int thread_index);
+	/**
+	 * more_data return:
+	 * @DONE_TEXT
+	 * @CONTIN_TEXT
+	 * @NO_MESSAGE
+	 * @ERROR_FRAME
+	 **/
+	WebSocketFrameType more_data(const short int thread_index);
 	void done(const short int thread_index);
 };
 

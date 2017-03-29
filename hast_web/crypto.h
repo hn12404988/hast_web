@@ -51,7 +51,7 @@ public:
                 
 			return base64;
 		}
-            
+		
 		static std::string decode(const std::string &base64) {
 			std::string ascii;
                 
