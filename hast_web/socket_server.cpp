@@ -655,7 +655,16 @@ WebSocketFrameType socket_server<sock_T>::partially_recv(const short int thread_
 				continue;
 			}
 		}
-		return type;
+		if(type==DONE_TEXT){
+			return DONE_TEXT;
+		}
+		else if(type==CONTIN_TEXT){
+			return CONTIN_TEXT;
+		}
+		else{
+			clear_pending(thread_index);
+			close_socket(thread_index);
+		}
 	}
 }
 
