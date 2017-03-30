@@ -55,6 +55,7 @@ protected:
 	void clear_pending(const short int thread_index);
 	bool pop_pending(const short int thread_index);
 	void upgrade(std::string &headers);
+	WebSocketFrameType more_data(const short int thread_index);
 	void reset_recv(const short int thread_index);
 	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 	inline void recv_epoll();
@@ -80,7 +81,7 @@ public:
 	 * RETURN NO_MESSAGE
 	 * RETURN ERROR_FRAME
 	 **/
-	WebSocketFrameType more_data(const short int thread_index);
+	WebSocketFrameType more_recv(const short int thread_index);
 	void done(const short int thread_index);
 };
 
