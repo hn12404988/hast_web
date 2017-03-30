@@ -1,7 +1,7 @@
 #ifndef socket_server_h
 #define socket_server_h
-#include <hast_web/tcp_config.h>
-#include <hast_web/server_thread.h>
+#include <hast_web/tcp_config.hpp>
+#include <hast_web/server_thread.hpp>
 #include <sys/poll.h>
 #include <cstring>
 #include <map>
@@ -26,6 +26,7 @@ enum WebSocketFrameType {
 	CONTIN_BINARY_BEHIND=0x08,
 	OVERSIZE_FRAME=0x09,
 	NO_MESSAGE=0x0A,
+	RECYCLE_THREAD=0x0B,
 
 	TEXT_FRAME=0x81,
 	BINARY_FRAME=0x82,
@@ -50,13 +51,15 @@ protected:
 	std::mutex waiting_mx;
 
 	void echo_type(const int type); //delete this when ready for production
-	void clear_pending(short int thread_index);
+	bool single_poll(const int socket_index, const short int time);
+	void clear_pending(const short int thread_index);
+	bool pop_pending(const short int thread_index);
 	void upgrade(std::string &headers);
 	void reset_recv(const short int thread_index);
 	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 	inline void recv_epoll();
 	void close_socket(const short int thread_index, const int line); //remove line when ready for production
-	WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* data_length, size_t* resize_length);
+	WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* resize_length);
 	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
 	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
 public:
@@ -64,14 +67,18 @@ public:
 	~socket_server();
 	std::function<void(const int)> on_close {nullptr};
 	bool init(hast::tcp_socket::port port, short int unsigned max = 0);
-	bool msg_recv(const short int thread_index, bool partially = false);
-	bool partially_recv(const short int thread_index);
+	bool msg_recv(const short int thread_index);
 	/**
-	 * more_data return:
-	 * @DONE_TEXT
-	 * @CONTIN_TEXT
-	 * @NO_MESSAGE
-	 * @ERROR_FRAME
+	 * RETURN DONE_TEXT
+	 * RETURN CONTIN_TEXT
+	 * RETURN RECYCLE_THREAD
+	 **/
+	WebSocketFrameType partially_recv(const short int thread_index);
+	/**
+	 * RETURN DONE_TEXT
+	 * RETURN CONTIN_TEXT
+	 * RETURN NO_MESSAGE
+	 * RETURN ERROR_FRAME
 	 **/
 	WebSocketFrameType more_data(const short int thread_index);
 	void done(const short int thread_index);

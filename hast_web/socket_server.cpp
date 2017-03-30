@@ -12,6 +12,17 @@ socket_server<sock_T>::~socket_server(){
 	close(epollfd);
 }
 
+template<class sock_T>
+bool socket_server<sock_T>::single_poll(const int socket_index, const short int time){
+	struct pollfd ufds;
+	ufds.events = POLLIN;
+	ufds.fd = socket_index;
+	if(poll(&ufds,1,time)<=0 || (ufds.revents & POLLIN)==false){
+		return false;
+	}
+	return true;
+}
+
 template<>
 void socket_server<int>::close_socket(const short int thread_index, const int line){
 	int socket = socketfd[thread_index];
@@ -273,6 +284,9 @@ inline void socket_server<SSL*>::recv_epoll(){
 
 template<>
 bool socket_server<int>::read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str){
+	if(single_poll(socketfd[thread_index],3000)==false){
+		return true;
+	}
 	unsigned char new_char[transport_size];
 	int a;
 	for(;;){
@@ -291,6 +305,9 @@ bool socket_server<int>::read_loop(const short int thread_index, std::basic_stri
 
 template<>
 bool socket_server<SSL*>::read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str){
+	if(single_poll(SSL_get_fd(socketfd[thread_index]),3000)==false){
+		return true;
+	}
 	unsigned char new_char[transport_size];
 	int a;
 	for(;;){
@@ -347,20 +364,26 @@ WebSocketFrameType socket_server<sock_T>::more_data(const short int thread_index
 			return NO_MESSAGE;
 		}
 	}
-	size_t resize_len, data_len;
+	size_t resize_len;
 	resize_len = raw_str.length();
 	std::cout  << "raw_str len: " << resize_len << std::endl;
 	unsigned char u_msg[resize_len];
-	a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &data_len, &resize_len);
+	a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
 	//std::cout  << "raw_msg len: " << resize_len << std::endl;
 	if(a==DONE_TEXT || a==DONE_TEXT_BEHIND || a==CONTIN_TEXT || a==CONTIN_TEXT_BEHIND){
 		if(pending[thread_index]==nullptr){
 			std::cout  << "msg_append_1"<< std::endl;
-			server_thread<sock_T>::raw_msg[thread_index].append(reinterpret_cast<char*>(u_msg),data_len);
+			server_thread<sock_T>::raw_msg[thread_index].append(reinterpret_cast<char*>(u_msg));
 		}
 		else{
 			std::cout  << "pending_append_1"<< std::endl;
-			(pending[thread_index]->back()).append(reinterpret_cast<char*>(u_msg),data_len);
+			(pending[thread_index]->back()).append(reinterpret_cast<char*>(u_msg));
+			if(a==CONTIN_TEXT){
+				server_thread<sock_T>::pending_done[thread_index] = false;
+			}
+			else if(a==DONE_TEXT){
+				server_thread<sock_T>::pending_done[thread_index] = true;
+			}
 		}
 	}
 	else{
@@ -372,19 +395,22 @@ WebSocketFrameType socket_server<sock_T>::more_data(const short int thread_index
 	}
 	if(a==DONE_TEXT_BEHIND || a==CONTIN_TEXT_BEHIND){
 		bool last_is_CONTIN {(a==CONTIN_TEXT_BEHIND)};
+		bool already_done {(a==DONE_TEXT_BEHIND)};
 		for(;;){
 			raw_str = raw_str.substr(resize_len);
 			resize_len = raw_str.length();
-			a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &data_len, &resize_len);
+			a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
 			if(a==DONE_TEXT || a==DONE_TEXT_BEHIND){
+				already_done = true;
 				if(last_is_CONTIN==true){
 					if(pending[thread_index]==nullptr){
 						std::cout  << "raw_append_2"<< std::endl;
-						server_thread<sock_T>::raw_msg[thread_index].append(reinterpret_cast<char*>(u_msg), data_len);
+						server_thread<sock_T>::raw_msg[thread_index].append(reinterpret_cast<char*>(u_msg));
 					}
 					else{
 						std::cout  << "pending_append_2"<< std::endl;
-						(pending[thread_index]->back()).append(reinterpret_cast<char*>(u_msg), data_len);
+						(pending[thread_index]->back()).append(reinterpret_cast<char*>(u_msg));
+						server_thread<sock_T>::pending_done[thread_index] = true;
 					}
 				}
 				else{
@@ -393,6 +419,7 @@ WebSocketFrameType socket_server<sock_T>::more_data(const short int thread_index
 					}
 					std::cout  << "pending_push"<< std::endl;
 					pending[thread_index]->push_back(reinterpret_cast<char*>(u_msg));
+					server_thread<sock_T>::pending_done[thread_index] = true;
 				}
 				last_is_CONTIN = false;
 				if(a==DONE_TEXT){
@@ -402,11 +429,12 @@ WebSocketFrameType socket_server<sock_T>::more_data(const short int thread_index
 			else if(a==CONTIN_TEXT || a==CONTIN_TEXT_BEHIND){
 				if(pending[thread_index]==nullptr){
 					std::cout  << "raw_append_3"<< std::endl;
-					server_thread<sock_T>::raw_msg[thread_index].append(reinterpret_cast<char*>(u_msg), data_len);
+					server_thread<sock_T>::raw_msg[thread_index].append(reinterpret_cast<char*>(u_msg));
 				}
 				else{
 					std::cout  << "pending_append_3"<< std::endl;
-					(pending[thread_index]->back()).append(reinterpret_cast<char*>(u_msg), data_len);
+					(pending[thread_index]->back()).append(reinterpret_cast<char*>(u_msg));
+					server_thread<sock_T>::pending_done[thread_index] = false;
 				}
 				last_is_CONTIN = true;
 				if(a==CONTIN_TEXT){
@@ -420,10 +448,7 @@ WebSocketFrameType socket_server<sock_T>::more_data(const short int thread_index
 				return ERROR_FRAME;
 			}
 		}
-		/**
-		 * return a;
-		 **/
-		if(a==DONE_TEXT){
+		if(already_done==true){
 			return DONE_TEXT;
 		}
 		else{
@@ -464,15 +489,46 @@ void socket_server<SSL*>::reset_recv(const short int thread_index){
 }
 
 template<class sock_T>
-bool socket_server<sock_T>::msg_recv(const short int thread_index, bool partially){
+bool socket_server<sock_T>::pop_pending(const short int thread_index){
 	if(pending[thread_index]!=nullptr){
 		if(pending[thread_index]->size()==0){
 			delete pending[thread_index];
 			pending[thread_index] = nullptr;
+			return false;
 		}
 		else{
 			server_thread<sock_T>::raw_msg[thread_index] = pending[thread_index]->front();
 			pending[thread_index]->pop_front();
+			return true;
+		}
+	}
+	return false;
+}
+
+template<class sock_T>
+bool socket_server<sock_T>::msg_recv(const short int thread_index){
+	int type;
+	if(pop_pending(thread_index)==true){
+		if(server_thread<sock_T>::pending_done[thread_index]==false){
+			for(;;){
+				type = more_data(thread_index);
+				if(type==CONTIN_TEXT){
+					continue;
+				}
+				else{
+					break;
+				}
+			}
+			server_thread<sock_T>::pending_done[thread_index] = true;
+			if(type==DONE_TEXT){
+				return true;
+			}
+			else{
+				clear_pending(thread_index);
+				close_socket(thread_index,__LINE__);
+			}
+		}
+		else{
 			return true;
 		}
 	}
@@ -508,17 +564,10 @@ bool socket_server<sock_T>::msg_recv(const short int thread_index, bool partiall
 			continue;
 		}
 		got_it = true;
-		int type;
 		for(;;){
 			type = more_data(thread_index);
-			echo_type(type);
 			if(type==CONTIN_TEXT){
-				if(partially==true){
-					break;
-				}
-				else{
-					continue;
-				}
+				continue;
 			}
 			else{
 				break;
@@ -527,18 +576,87 @@ bool socket_server<sock_T>::msg_recv(const short int thread_index, bool partiall
 		if(type==ERROR_FRAME){
 			continue;
 		}
-		if(server_thread<sock_T>::raw_msg[thread_index].length()==0){
-			clear_pending(thread_index);
-			close_socket(thread_index,__LINE__);
-			continue;
+		else{
+			if(type==NO_MESSAGE){
+				clear_pending(thread_index);
+				close_socket(thread_index,__LINE__);
+				continue;
+			}
+			else{
+				if(server_thread<sock_T>::raw_msg[thread_index].length()==0){
+					clear_pending(thread_index);
+					close_socket(thread_index,__LINE__);
+					continue;
+				}
+			}
 		}
 		return true;
 	}
 }
 
 template<class sock_T>
-bool socket_server<sock_T>::partially_recv(const short int thread_index){
-	return msg_recv(thread_index,true);
+WebSocketFrameType socket_server<sock_T>::partially_recv(const short int thread_index){
+	int type;
+	if(pop_pending(thread_index)==true){
+		bool done {server_thread<sock_T>::pending_done[thread_index]};
+		server_thread<sock_T>::pending_done[thread_index] = true;
+		if(done==false){
+			return CONTIN_TEXT;
+		}
+		else{
+			return DONE_TEXT;
+		}
+	}
+	for(;;){
+		server_thread<sock_T>::raw_msg[thread_index].clear();
+		server_thread<sock_T>::recv_mx.lock();
+		reset_recv(thread_index);
+		server_thread<sock_T>::in_execution[thread_index] = 0;
+		if(server_thread<sock_T>::recv_thread==-1){
+			server_thread<sock_T>::recv_thread = thread_index;
+			server_thread<sock_T>::recv_mx.unlock();
+			recv_epoll();
+		}
+		else{
+			server_thread<sock_T>::recv_mx.unlock();
+		}
+		for(;;){
+			if(server_thread<sock_T>::in_execution[thread_index]==1){
+				break;
+			}
+			else if(server_thread<sock_T>::in_execution[thread_index]==2){
+				return RECYCLE_THREAD;
+			}
+			else if(server_thread<sock_T>::recv_thread==-1){
+				break;
+			}
+			else{
+				waiting_mx.lock();
+				waiting_mx.unlock();
+			}
+		}
+		if(server_thread<sock_T>::in_execution[thread_index]==0){
+			continue;
+		}
+		got_it = true;
+		type = more_data(thread_index);
+		if(type==ERROR_FRAME){
+			continue;
+		}
+		else if(type==NO_MESSAGE){
+			clear_pending(thread_index);
+			close_socket(thread_index,__LINE__);
+			continue;
+		}
+		else{
+			if(server_thread<sock_T>::raw_msg[thread_index].length()==0){
+				clear_pending(thread_index);
+				close_socket(thread_index,__LINE__);
+				continue;
+			}
+		}
+		return type;
+	}
 }
 
 template<class sock_T>
@@ -612,7 +730,7 @@ int socket_server<sock_T>::makeFrame(WebSocketFrameType frame_type, const char* 
 }
 
 template<class sock_T>
-WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* data_length, size_t* resize_length)
+WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* resize_length)
 {
 	//printf("getTextFrame()\n");
 	if(in_length < 3) return ERROR_FRAME;
@@ -677,11 +795,9 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, siz
 
 	memcpy((void*)out_buffer, (void*)(in_buffer+pos), payload_length);
 	out_buffer[payload_length] = 0;
-	*data_length = payload_length+1;
 	*resize_length = payload_length+pos;
 	std::cout  << "in_length: " << in_length << std::endl;
 	std::cout  << "resize_length: " << *resize_length << std::endl;
-	std::cout  << "data_length: " << *data_length << std::endl;
 	std::cout  << "pos: " << pos << std::endl;
 	//printf("TEXT: %s\n", out_buffer);
 	if(msg_opcode == 0x0){
@@ -720,12 +836,13 @@ WebSocketFrameType socket_server<sock_T>::getFrame(unsigned char* in_buffer, siz
 }
 
 template<class sock_T>
-void socket_server<sock_T>::clear_pending(short int thread_index){
+void socket_server<sock_T>::clear_pending(const short int thread_index){
 	if(pending[thread_index]!=nullptr){
 		pending[thread_index]->clear();
 		delete pending[thread_index];
 		pending[thread_index] = nullptr;
 	}
+	server_thread<sock_T>::pending_done[thread_index] = true;
 }
 
 template<class sock_T>
@@ -785,6 +902,9 @@ void socket_server<sock_T>::echo_type(const int type){
 		break;
 	case NO_MESSAGE:
 		std::cout  << "NO_MESSAGE" << std::endl;
+		break;
+	case RECYCLE_THREAD:
+		std::cout  << "RECYCLE_THREAD" << std::endl;
 		break;
 	default:
 		std::cout  << "NULL TYPE" << std::endl;

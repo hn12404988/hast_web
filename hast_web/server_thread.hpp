@@ -3,7 +3,7 @@
 #include <mutex>
 #include <thread>
 #include <map>
-#include <hast_web/crypto.h>
+#include <hast_web/crypto.hpp>
 
 template<class sock_T>
 class server_thread{
@@ -22,6 +22,7 @@ protected:
 	 **/
 	std::vector<char> in_execution;
 	std::vector<std::thread*> thread_list;
+	std::vector<bool> pending_done;
 
 	SSL_CTX *ctx {nullptr};
 	bool wss_init(const char* crt, const char*key);

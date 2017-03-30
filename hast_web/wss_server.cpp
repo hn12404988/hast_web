@@ -12,15 +12,12 @@ void wss_server::start_accept(){
 	int l;
 	char new_char[transport_size];
 	std::string msg;
-	struct pollfd ufds;
-	ufds.events = POLLIN;
 	int new_socket {1};
 	while(new_socket>=0){
 		new_socket = accept4(host_socket, (struct sockaddr *)&client_addr, &client_addr_size, SOCK_NONBLOCK);
 		if(new_socket>0){
 			msg.clear();
-			ufds.fd = new_socket;
-			if(poll(&ufds,1,3000)<=0 || (ufds.revents & POLLIN)==false){
+			if(single_poll(new_socket,3000)==false){
 				reset_accept(new_socket);
 				continue;
 			}
@@ -61,7 +58,7 @@ void wss_server::start_accept(){
 			if(l==-1){
 				continue;
 			}
-			if(poll(&ufds,1,3000)<=0 || (ufds.revents & POLLIN)==false){
+			if(single_poll(new_socket,3000)==false){
 				reset_accept(new_socket,ssl);
 				ssl = nullptr;
 				continue;
