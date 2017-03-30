@@ -427,6 +427,12 @@ WebSocketFrameType socket_server<sock_T>::more_data(const short int thread_index
 	}
 }
 
+template<class sock_T>
+WebSocketFrameType socket_server<sock_T>::more_recv(const short int thread_index){
+	server_thread<sock_T>::raw_msg[thread_index].clear();
+	return more_data(thread_index);
+}
+
 template<>
 void socket_server<int>::reset_recv(const short int thread_index){
 	if(socketfd[thread_index]>=0){

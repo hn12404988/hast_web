@@ -54,6 +54,7 @@ protected:
 	bool pop_pending(const short int thread_index);
 	void upgrade(std::string &headers);
 	void reset_recv(const short int thread_index);
+	WebSocketFrameType more_data(const short int thread_index);
 	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 	inline void recv_epoll();
 	void close_socket(const short int thread_index);
@@ -73,12 +74,13 @@ public:
 	 **/
 	WebSocketFrameType partially_recv(const short int thread_index);
 	/**
+	 * `more_recv` only works with `partially_recv`. Try to call `more_recv` under `msg_recv` will cause fatal problems.
 	 * RETURN DONE_TEXT
 	 * RETURN CONTIN_TEXT
 	 * RETURN NO_MESSAGE
 	 * RETURN ERROR_FRAME
 	 **/
-	WebSocketFrameType more_data(const short int thread_index);
+	WebSocketFrameType more_recv(const short int thread_index);
 	void done(const short int thread_index);
 };
 
