@@ -95,7 +95,6 @@ inline void server_thread<sock_T>::resize(){
 				continue;
 			}
 			if(thread_list[b]->joinable()==true){
-				//std::cout << "KILL THREAD: " << b << std::endl;
 				thread_list[b]->join();
 				delete thread_list[b];
 				thread_list[b] = nullptr;
@@ -170,7 +169,6 @@ inline void server_thread<SSL*>::add_thread(){
 		--a;
 		for(;a>=0;--a){
 			if(thread_list[a]==nullptr){
-				//std::cout << "ADD THREAD OLD: " << a << std::endl;
 				thread_list[a] = new std::thread(execute,a);
 				++alive_thread;
 				break;
@@ -198,6 +196,5 @@ inline void server_thread<SSL*>::add_thread(){
 	thread_list[a] = new std::thread(execute,a);
 	++alive_thread;
 	recv_mx.unlock();
-	//std::cout << "ADD THREAD NEW: " << a << std::endl;
 }
 

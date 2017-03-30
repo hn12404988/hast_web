@@ -6,7 +6,6 @@
 #include <cstring>
 #include <map>
 #include <list>
-#include <iostream> //delete this when ready for production
 
 #define MAX_EVENTS 10
 enum WebSocketFrameType {
@@ -50,7 +49,6 @@ protected:
 	
 	std::mutex waiting_mx;
 
-	void echo_type(const int type); //delete this when ready for production
 	bool single_poll(const int socket_index, const short int time);
 	void clear_pending(const short int thread_index);
 	bool pop_pending(const short int thread_index);
@@ -58,7 +56,7 @@ protected:
 	void reset_recv(const short int thread_index);
 	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 	inline void recv_epoll();
-	void close_socket(const short int thread_index, const int line); //remove line when ready for production
+	void close_socket(const short int thread_index);
 	WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* resize_length);
 	int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
 	int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
