@@ -9,6 +9,7 @@ Websocket server based on [hast](https://github.com/hn12404988/hast) core. Let i
 * Extremely easy to use
 * Support most of RFC6455
 * Support WS and WSS
+* Support **Partially Receiving** for large data. (ex file,image...etc)
 * Inherit from [hast](https://github.com/hn12404988/hast): Not just **Asynchronous**, straight up **In Parallel**
 * Inherit from [hast](https://github.com/hn12404988/hast): Dynamic Thread Pool
 
