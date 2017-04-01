@@ -294,7 +294,7 @@ bool socket_server<int>::read_loop(const short int thread_index, std::basic_stri
 			return false;
 		}
 		else{
-			if(error==EAGAIN || errno==EWOULDBLOCK){
+			if(errno==EAGAIN || errno==EWOULDBLOCK){
 				return true;
 			}
 			else{
