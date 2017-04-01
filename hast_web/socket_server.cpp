@@ -295,9 +295,16 @@ bool socket_server<int>::read_loop(const short int thread_index, std::basic_stri
 			raw_str.append(new_char,a);
 		}
 		else if(a==0){
-			return true;
+			//client close connection
+			return false;
 		}
 		else{
+			if(errno==EAGAIN || errno==EWOULDBLOCK){
+				return true;
+			}
+			else{
+				return false;
+			}
 			return false;
 		}
 	}
