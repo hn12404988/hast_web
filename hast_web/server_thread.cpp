@@ -156,6 +156,7 @@ inline void server_thread<int>::add_thread(){
 	in_execution.push_back(1);
 	raw_msg.push_back("");
 	thread_list.push_back(nullptr);
+	pending_done.push_back(true);
 	thread_list[a] = new std::thread(execute,a);
 	++alive_thread;
 	recv_mx.unlock();
