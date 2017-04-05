@@ -13,11 +13,12 @@
 
 ## 安裝
 
-* `openssl-devel` 套件安裝完畢.
+* `openssl-devel` 套件安裝完畢。
 ```
 yum install openssl-devel
 apt-get install libssl-dev
 ```
+* [hast](https://github.com/hn12404988/hast)已安裝
 * 把`hast_web`資料夾複製到系統裡的include資料夾
 * 這專案使用到`std::thread`, `crypto.h`和`ssl.h`，所以編譯指令可能需包含以下三個套件：
 ```

@@ -20,6 +20,7 @@ Websocket server based on [hast](https://github.com/hn12404988/hast) core. Let i
 yum install openssl-devel
 apt-get install libssl-dev
 ```
+* [hast](https://github.com/hn12404988/hast) is installed.
 * It is **header-only** library. Copy `hast_web` folder to your include path.
 * Usage of the library and other details please refer to `examples` folder in this moment.
 * This project use `std::thread` , `crypto.h` and `ssl.h`, so compilation command can be:
