@@ -1,8 +1,8 @@
-#ifndef wss_server_h
-#define wss_server_h
+#ifndef hast_web_wss_server_h
+#define hast_web_wss_server_h
 #include <hast_web/socket_server.hpp>
 
-class wss_server : public socket_server<SSL*>{
+class wss_server : public hast_web::::socket_server<SSL*>{
 protected:
 	void reset_accept(int socket_index,SSL *ssl = nullptr);
 public:

@@ -116,7 +116,6 @@ void wss_server::start_accept(){
 				on_open(ssl);
 			}
 			if((*ssl_map)[new_socket]!=nullptr){
-				std::cout << "closed by: wss_server.cpp" << std::endl;
 				if(on_close!=nullptr){
 					on_close(new_socket);
 				}
@@ -141,7 +140,7 @@ void wss_server::start_accept(){
 }
 
 bool wss_server::init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max){
-	if(socket_server::init(port, max)==false){
+	if(hast_web::socket_server::init(port, max)==false){
 		return false;
 	}
 	return server_thread::wss_init(crt,key);

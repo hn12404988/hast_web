@@ -1,5 +1,5 @@
-#ifndef crypto_h
-#define	crypto_h
+#ifndef hast_web_crypto_h
+#define	hast_web_crypto_h
 
 #include <string>
 #include <cmath>

@@ -86,4 +86,3 @@ inline void ws_server::echo_back_msg(const int socket_index, const char* msg){
 	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
 	send(socket_index, buf, len,0);
 }
-
