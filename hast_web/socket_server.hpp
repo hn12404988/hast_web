@@ -1,5 +1,5 @@
-#ifndef socket_server_h
-#define socket_server_h
+#ifndef hast_web_socket_server_h
+#define hast_web_socket_server_h
 #include <hast_web/tcp_config.hpp>
 #include <hast_web/server_thread.hpp>
 #include <sys/poll.h>

@@ -1,5 +1,5 @@
-#ifndef server_thread_h
-#define server_thread_h
+#ifndef hast_web_server_thread_h
+#define hast_web_server_thread_h
 #include <mutex>
 #include <thread>
 #include <map>

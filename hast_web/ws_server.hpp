@@ -1,5 +1,5 @@
-#ifndef ws_server_h
-#define ws_server_h
+#ifndef hast_web_ws_server_h
+#define hast_web_ws_server_h
 #include <hast_web/socket_server.hpp>
 
 class ws_server : public socket_server<int>{
