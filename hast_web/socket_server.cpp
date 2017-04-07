@@ -65,10 +65,12 @@ namespace hast_web{
 	}
 
 	template<class sock_T>
-	void socket_server<sock_T>::upgrade(std::string &headers){
+	void socket_server<sock_T>::upgrade(std::string &headers,std::string &user,std::string &password){
 		std::string key,value;
 		size_t msg_len {headers.length()};
-		int tmp,tmp_max;
+		int a,b;
+		user.clear();
+		password.clear();
 		for(size_t i=0;i<msg_len;++i){
 			if(headers[i]=='\n'){
 				if(i+1==msg_len){
@@ -80,26 +82,45 @@ namespace hast_web{
 				else{
 					key = headers.substr(0,i);
 				}
-				tmp_max = key.length();
-				for(tmp=0;tmp<tmp_max;++tmp){
-					if(key[tmp]==':' && key[tmp+1]==' '){
-						value = key.substr(tmp+2);
-						key = key.substr(0,tmp);
+				b = key.length();
+				for(a=0;a<b;++a){
+					if(key[a]==':' && key[a+1]==' '){
+						value = key.substr(a+2);
+						key = key.substr(0,a);
 						break;
 					}
 				}
-				std::cout << key << std::endl;
-				std::cout << value << std::endl;
-				if(key=="Sec-WebSocket-Key"){
-					value.append("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-					headers.clear();
-					headers.append("HTTP/1.1 101 Switching Protocols\r\n");
-					headers.append("Server: hast_ws_server\r\n");
-					headers.append("Upgrade: websocket\r\n");
-					headers.append("Connection: Upgrade\r\nSec-WebSocket-Accept: ");
-					headers.append(Crypto::Base64::encode(Crypto::sha1(value)));
-					headers.append("\r\n\r\n");
-					return;
+				if(a==b){
+					if(key.substr(0,3)=="GET"){
+						key = key.substr(5);
+						b = key.length();
+						for(a=0;a<b;++a){
+							if(key[a]=='&'){
+								++a;
+								break;
+							}
+							user.push_back(key[a]);
+						}
+						for(;a<b;++a){
+							if(key[a]==' '){
+								break;
+							}
+							password.push_back(key[a]);
+						}
+					}
+				}
+				else{
+					if(key=="Sec-WebSocket-Key"){
+						value.append("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+						headers.clear();
+						headers.append("HTTP/1.1 101 Switching Protocols\r\n");
+						headers.append("Server: hast_ws_server\r\n");
+						headers.append("Upgrade: websocket\r\n");
+						headers.append("Connection: Upgrade\r\nSec-WebSocket-Accept: ");
+						headers.append(Crypto::Base64::encode(Crypto::sha1(value)));
+						headers.append("\r\n\r\n");
+						return;
+					}
 				}
 				headers = headers.substr(i+1);
 				msg_len = headers.length();

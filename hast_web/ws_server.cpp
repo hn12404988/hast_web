@@ -4,16 +4,13 @@ void ws_server::start_accept(){
 	}
 	int l;
 	char new_char[transport_size];
-	std::string msg;
-	struct pollfd ufds;
-	ufds.events = POLLIN;
+	std::string msg,user,password;
 	int new_socket {1};
 	while(new_socket>=0){
 		new_socket = accept4(host_socket, (struct sockaddr *)&client_addr, &client_addr_size,SOCK_NONBLOCK);
 		if(new_socket>0){
 			msg.clear();
-			ufds.fd = new_socket;
-			if(poll(&ufds,1,3000)<=0 || (ufds.revents & POLLIN)==false){
+			if(single_poll(new_socket,3000)==false){
 				shutdown(new_socket,SHUT_RDWR);
 				close(new_socket);
 				continue;
@@ -35,11 +32,18 @@ void ws_server::start_accept(){
 				close(new_socket);
 				continue;
 			}
-			upgrade(msg);
+			upgrade(msg,user,password);
 			if(msg==""){
 				shutdown(new_socket,SHUT_RDWR);
 				close(new_socket);
 				continue;
+			}
+			if(on_open!=nullptr){
+				if(on_open(new_socket,user,password)==false){
+					shutdown(new_socket,SHUT_RDWR);
+					close(new_socket);
+					continue;
+				}
 			}
 			ev.data.fd = new_socket;
 			if(epoll_ctl(epollfd, EPOLL_CTL_ADD, new_socket,&ev)==-1){
@@ -48,9 +52,6 @@ void ws_server::start_accept(){
 				continue;
 			}
 			send(new_socket, msg.c_str(), msg.length(),0);
-			if(on_open!=nullptr){
-				on_open(new_socket);
-			}
 			if(recv_thread==-1){
 				add_thread();
 			}

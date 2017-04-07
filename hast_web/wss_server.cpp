@@ -11,7 +11,7 @@ void wss_server::start_accept(){
 	SSL *ssl {SSL_new(ctx)};
 	int l;
 	char new_char[transport_size];
-	std::string msg;
+	std::string msg,user,password;
 	int new_socket {1};
 	while(new_socket>=0){
 		new_socket = accept4(host_socket, (struct sockaddr *)&client_addr, &client_addr_size, SOCK_NONBLOCK);
@@ -99,30 +99,24 @@ void wss_server::start_accept(){
 				ssl = nullptr;
 				continue;
 			}
-			upgrade(msg);
+			upgrade(msg,user,password);
 			if(msg==""){
 				reset_accept(new_socket,ssl);
 				ssl = nullptr;
 				continue;
 			}
-			ev.data.fd = new_socket;
-			if(epoll_ctl(epollfd, EPOLL_CTL_ADD, new_socket,&ev)==-1){
-				reset_accept(new_socket,ssl);
-				ssl = nullptr;
-				continue;
-			}
-			SSL_write(ssl, msg.c_str(), msg.length());
 			if(on_open!=nullptr){
-				on_open(ssl);
+				if(on_open(ssl,user,password)==false){
+					reset_accept(new_socket,ssl);
+					ssl = nullptr;
+					continue;
+				}
 			}
 			if((*ssl_map)[new_socket]!=nullptr){
 				if(on_close!=nullptr){
 					on_close(new_socket);
 				}
-				epoll_ctl(epollfd, EPOLL_CTL_DEL, new_socket,nullptr);
-				shutdown(new_socket,SHUT_RDWR);
-				close(new_socket);
-				SSL_free(ssl);
+				reset_accept(new_socket,ssl);
 				ssl = nullptr;
 				continue;
 			}
@@ -130,6 +124,14 @@ void wss_server::start_accept(){
 				(*ssl_map)[new_socket] = ssl;
 				ssl = nullptr;
 			}
+			ev.data.fd = new_socket;
+			if(epoll_ctl(epollfd, EPOLL_CTL_ADD, new_socket,&ev)==-1){
+				reset_accept(new_socket,ssl);
+				ssl = nullptr;
+				(*ssl_map)[new_socket] = nullptr;
+				continue;
+			}
+			SSL_write(ssl, msg.c_str(), msg.length());
 			if(recv_thread==-1){
 				add_thread();
 			}

@@ -55,7 +55,7 @@ namespace hast_web{
 		bool single_poll(const int socket_index, const short int time);
 		void clear_pending(const short int thread_index);
 		bool pop_pending(const short int thread_index);
-		void upgrade(std::string &headers);
+		void upgrade(std::string &headers,std::string &user,std::string &password);
 		WebSocketFrameType more_data(const short int thread_index);
 		void reset_recv(const short int thread_index);
 		bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);

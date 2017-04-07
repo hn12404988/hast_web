@@ -4,7 +4,7 @@
 
 class ws_server : public hast_web::socket_server<int>{
 public:
-	std::function<void(const int)> on_open {nullptr};
+	std::function<bool(const int, std::string &user, std::string &password)> on_open {nullptr};
 	void start_accept();
 	inline void echo_back_msg(const short int thread_index, std::string &msg);
 	inline void echo_back_msg(const short int thread_index, const char *msg);

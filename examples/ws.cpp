@@ -34,10 +34,16 @@ void on_close(const int socket_index){
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
-void on_open(const int socket_index){
+bool on_open(const int socket_index,std::string &user, std::string &password){
 	//A socket is opened. Do something here.
 	std::cout << "OPEN: " << socket_index << std::endl;
+	std::cout << "USER: " << user << std::endl;
+	std::cout << "PASSWORD: " << password << std::endl;
 	server.echo_back_msg(socket_index,"Welcome!!");
+	/**
+	 * Return true if you want to accept this connection, else return false to close it.
+	 **/
+	return true;
 }
 
 int main (int argc, char* argv[]){

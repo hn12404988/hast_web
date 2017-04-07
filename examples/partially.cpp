@@ -133,10 +133,16 @@ void on_close(const int socket_index){
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
-void on_open(SSL* ssl){
+bool on_open(SSL* ssl, std::string &user, std::string &password){
 	//A socket is opened. Do something here.
 	std::cout << "OPEN: " << server.get_socket_fd(ssl) << std::endl;
+	std::cout << "USER: " << user << std::endl;
+	std::cout << "PASSWORD: " << password << std::endl;
 	server.echo_back_msg(ssl,"Welcome!!");
+	/**
+	 * Return true if you want to accept this connection, else return false to close it.
+	 **/
+	return true;
 }
 
 int main (int argc, char* argv[]){

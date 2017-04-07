@@ -1,0 +1,41 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8" >
+</head>
+<body>
+	<script>
+	 var server_url = "ws://172.17.0.2:8888/user&password";
+	 var ws = new WebSocket(server_url);
+	 function check(ws){
+		 if(ws.readyState==1){
+			 return true;
+		 }
+		 else if(ws.readyState==0){
+			 return false;
+		 }
+		 else if(ws.readyState>1){
+			 ws = new WebSocket(server_url);
+			 return false;
+		 }
+	 }
+	 function send(msg){
+		 if(check(ws)==false){
+			 console.log("WS check() false");
+		 }
+		 else{
+			 ws.send(msg);
+		 }
+	 }
+	 ws.addEventListener("message",function(event){
+		 console.log(event.data);
+	 },false);
+	 ws.addEventListener("open",function(event){
+		 console.log("websocket open");
+	 },false);
+	 ws.addEventListener("error",function(event){
+		 alert("No WebSocket Connection.");
+	 },false);
+	</script>
+	<input type="text" id="msg">
+	<button value="Send" onclick="send(document.getElementById('msg').value)"></button>
+</body>
