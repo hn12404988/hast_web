@@ -25,11 +25,12 @@ namespace hast_web{
 	}
 
 	template<>
-	void socket_server<int>::close_socket(const short int thread_index){
+	void socket_server<int>::close_socket(const short int thread_index, const int line){
 		int socket = socketfd[thread_index];
 		if(socket<0){
 			return;
 		}
+		std::cout << "close: " << line << std::endl;
 		if(on_close!=nullptr){
 			on_close(socket);
 		}
@@ -41,11 +42,12 @@ namespace hast_web{
 	}
 
 	template<>
-	void socket_server<SSL*>::close_socket(const short int thread_index){
+	void socket_server<SSL*>::close_socket(const short int thread_index, const int line){
 		int socket = SSL_get_fd(socketfd[thread_index]);
 		if(socket<0){
 			return;
 		}
+		std::cout << "close: " << line << std::endl;
 		SSL* tmp_ssl;
 		tmp_ssl = (*ssl_map)[socket];
 		if(tmp_ssl!=nullptr){
@@ -86,6 +88,8 @@ namespace hast_web{
 						break;
 					}
 				}
+				std::cout << key << std::endl;
+				std::cout << value << std::endl;
 				if(key=="Sec-WebSocket-Key"){
 					value.append("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
 					headers.clear();
@@ -336,7 +340,7 @@ namespace hast_web{
 		int a;
 		if(read_loop(thread_index,raw_str)==false){
 			clear_pending(thread_index);
-			close_socket(thread_index);
+			close_socket(thread_index,__LINE__);
 			return ERROR_FRAME;
 		}
 		else{
@@ -364,7 +368,7 @@ namespace hast_web{
 		}
 		else{
 			clear_pending(thread_index);
-			close_socket(thread_index);
+			close_socket(thread_index,__LINE__);
 			return ERROR_FRAME;
 		}
 		if(a==DONE_TEXT_BEHIND || a==CONTIN_TEXT_BEHIND){
@@ -412,7 +416,7 @@ namespace hast_web{
 				}
 				else{
 					clear_pending(thread_index);
-					close_socket(thread_index);
+					close_socket(thread_index,__LINE__);
 					return ERROR_FRAME;
 				}
 			}
@@ -499,7 +503,7 @@ namespace hast_web{
 				}
 				else{
 					clear_pending(thread_index);
-					close_socket(thread_index);
+					close_socket(thread_index,__LINE__);
 				}
 			}
 			else{
@@ -553,13 +557,13 @@ namespace hast_web{
 			else{
 				if(type==NO_MESSAGE){
 					clear_pending(thread_index);
-					close_socket(thread_index);
+					close_socket(thread_index,__LINE__);
 					continue;
 				}
 				else{
 					if(hast_web::server_thread<sock_T>::raw_msg[thread_index].length()==0){
 						clear_pending(thread_index);
-						close_socket(thread_index);
+						close_socket(thread_index,__LINE__);
 						continue;
 					}
 				}
@@ -619,13 +623,13 @@ namespace hast_web{
 			}
 			else if(type==NO_MESSAGE){
 				clear_pending(thread_index);
-				close_socket(thread_index);
+				close_socket(thread_index,__LINE__);
 				continue;
 			}
 			else{
 				if(hast_web::server_thread<sock_T>::raw_msg[thread_index].length()==0){
 					clear_pending(thread_index);
-					close_socket(thread_index);
+					close_socket(thread_index,__LINE__);
 					continue;
 				}
 			}
@@ -637,7 +641,7 @@ namespace hast_web{
 			}
 			else{
 				clear_pending(thread_index);
-				close_socket(thread_index);
+				close_socket(thread_index,__LINE__);
 			}
 		}
 		if(type==DONE_TEXT){
@@ -648,7 +652,7 @@ namespace hast_web{
 		}
 		else{
 			clear_pending(thread_index);
-			close_socket(thread_index);
+			close_socket(thread_index,__LINE__);
 		}
 	}
 

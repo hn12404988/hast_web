@@ -1,5 +1,6 @@
 #ifndef hast_web_socket_server_h
 #define hast_web_socket_server_h
+#include <iostream> //delete this when production
 #include <hast/tcp_config.hpp>
 #include <hast_web/server_thread.hpp>
 #include <sys/poll.h>
