@@ -63,6 +63,10 @@ namespace hast_web{
 		close(socket);
 		socketfd[thread_index] = nullptr;
 	}
+	template<class sock_T>
+	void socket_server<sock_T>::close_socket(const short int thread_index){
+		close_socket(thread_index,__LINE__);
+	}
 
 	template<class sock_T>
 	void socket_server<sock_T>::upgrade(std::string &headers,std::string &user,std::string &password){

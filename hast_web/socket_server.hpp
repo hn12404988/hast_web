@@ -83,6 +83,7 @@ namespace hast_web{
 		 * RETURN ERROR_FRAME
 		 **/
 		WebSocketFrameType more_recv(const short int thread_index);
+		void close_socket(const short int thread_index);
 		void done(const short int thread_index);
 	};
 };
