@@ -6,7 +6,8 @@ class wss_server : public hast_web::::socket_server<SSL*>{
 protected:
 	void reset_accept(int socket_index,SSL *ssl = nullptr);
 public:
-	std::function<bool(SSL*,std::string &user, std::string &password)> on_open {nullptr};
+	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_open {nullptr};
+	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_connect {nullptr};
 	void start_accept();
 	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 0);
 	inline int get_socket_fd(const short int thread_index);

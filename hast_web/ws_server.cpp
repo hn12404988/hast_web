@@ -38,6 +38,14 @@ void ws_server::start_accept(){
 				close(new_socket);
 				continue;
 			}
+			if(on_connect!=nullptr){
+				if(on_connect(new_socket,user,password)==false){
+					shutdown(new_socket,SHUT_RDWR);
+					close(new_socket);
+					continue;
+				}
+			}
+			send(new_socket, msg.c_str(), msg.length(),0);
 			if(on_open!=nullptr){
 				if(on_open(new_socket,user,password)==false){
 					shutdown(new_socket,SHUT_RDWR);
@@ -51,7 +59,6 @@ void ws_server::start_accept(){
 				close(new_socket);
 				continue;
 			}
-			send(new_socket, msg.c_str(), msg.length(),0);
 			if(recv_thread==-1){
 				add_thread();
 			}

@@ -105,6 +105,14 @@ void wss_server::start_accept(){
 				ssl = nullptr;
 				continue;
 			}
+			if(on_connect!=nullptr){
+				if(on_connect(ssl,user,password)==false){
+					reset_accept(new_socket,ssl);
+					ssl = nullptr;
+					continue;
+				}
+			}
+			SSL_write(ssl, msg.c_str(), msg.length());
 			if(on_open!=nullptr){
 				if(on_open(ssl,user,password)==false){
 					reset_accept(new_socket,ssl);
@@ -131,7 +139,6 @@ void wss_server::start_accept(){
 				(*ssl_map)[new_socket] = nullptr;
 				continue;
 			}
-			SSL_write(ssl, msg.c_str(), msg.length());
 			if(recv_thread==-1){
 				add_thread();
 			}
