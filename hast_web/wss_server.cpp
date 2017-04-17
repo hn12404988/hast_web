@@ -155,38 +155,60 @@ bool wss_server::init(const char* crt, const char* key, hast::tcp_socket::port p
 	return server_thread::wss_init(crt,key);
 }
 
-inline int wss_server::get_socket_fd(const short int thread_index){
-	return SSL_get_fd(socketfd[thread_index]);
-}
-
-inline int wss_server::get_socket_fd(SSL *ssl){
-	return SSL_get_fd(ssl);
-}
-
 inline void wss_server::echo_back_msg(const short int thread_index, std::string &msg){
 	int len {msg.length()+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
+	send_mx.lock();
+	close_mx.lock();
+	if(socketfd[thread_index]==nullptr){
+		close_mx.unlock();
+		send_mx.unlock();
+		return;
+	}
 	SSL_write(socketfd[thread_index], buf, len);
+	close_mx.unlock();
+	send_mx.unlock();
 }
 
 inline void wss_server::echo_back_msg(const short int thread_index, const char* msg){
 	int len {strlen(msg)+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
+	send_mx.lock();
+	close_mx.lock();
+	if(socketfd[thread_index]==nullptr){
+		close_mx.unlock();
+		send_mx.unlock();
+		return;
+	}
 	SSL_write(socketfd[thread_index], buf, len);
+	close_mx.unlock();
+	send_mx.unlock();
 }
 
 inline void wss_server::echo_back_msg(SSL *ssl, std::string &msg){
+	//Use this method only in on_open
+	if(ssl==nullptr){
+		return;
+	}
 	int len {msg.length()+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
+	send_mx.lock();
 	SSL_write(ssl, buf, len);
+	send_mx.unlock();
 }
 
 inline void wss_server::echo_back_msg(SSL *ssl, const char* msg){
+	//Use this method only in on_open
+	if(ssl==nullptr){
+		return;
+	}
 	int len {strlen(msg)+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
+	send_mx.lock();
 	SSL_write(ssl, buf, len);
+	send_mx.unlock();
 }

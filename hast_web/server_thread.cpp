@@ -87,10 +87,10 @@ namespace hast_web{
 				if(a==0){
 					break;
 				}
-				if(in_execution[b]==0 && thread_list[b]!=nullptr){
-					in_execution[b] = 2;
+				if(status[b]==hast_web::WAIT && thread_list[b]!=nullptr){
+					status[b] = hast_web::RECYCLE;
 				}
-				else if(in_execution[b]==2){
+				else if(status[b]==2){
 				}
 				else{
 					continue;
@@ -108,26 +108,29 @@ namespace hast_web{
 
 	template<class sock_T>
 	short int server_thread<sock_T>::get_thread(){
+		thread_mx.lock();
 		short int a;
 		a = socketfd.size()-1;
 		for(;a>=0;--a){
 			if(recv_thread==a){
 				continue;
 			}
-			if(in_execution[a]==0){
+			if(status[a]==hast_web::WAIT){
 				break;
 			}
 		}
 		if(a==-1){
 			a = recv_thread;
 		}
+		status[a]==hast_web::GET;
+		thread_mx.unlock();
 		return a;
 	}
 
 	template<>
 	inline void server_thread<int>::add_thread(){
 		short int a;
-		recv_mx.lock();
+		thread_mx.lock();
 		a = socketfd.size();
 		if(a>0){
 			--a;
@@ -139,33 +142,32 @@ namespace hast_web{
 				}
 			}
 			if(a>=0){
-				recv_mx.unlock();
+				thread_mx.unlock();
 				return;
 			}
 			else{
 				a = socketfd.size();
 				if(max_amount>0){
 					if(a>=max_amount){
-						recv_mx.unlock();
+						thread_mx.unlock();
 						return;
 					}
 				}
 			}
 		}
 		socketfd.push_back(-1);
-		in_execution.push_back(1);
+		status.push_back(hast_web::BUSY);
 		raw_msg.push_back("");
 		thread_list.push_back(nullptr);
-		pending_done.push_back(true);
 		thread_list[a] = new std::thread(execute,a);
 		++alive_thread;
-		recv_mx.unlock();
+		thread_mx.unlock();
 	}
 
 	template<>
 	inline void server_thread<SSL*>::add_thread(){
 		short int a;
-		recv_mx.lock();
+		thread_mx.lock();
 		a = socketfd.size();
 		if(a>0){
 			--a;
@@ -177,26 +179,25 @@ namespace hast_web{
 				}
 			}
 			if(a>=0){
-				recv_mx.unlock();
+				thread_mx.unlock();
 				return;
 			}
 			else{
 				a = socketfd.size();
 				if(max_amount>0){
 					if(a>=max_amount){
-						recv_mx.unlock();
+						thread_mx.unlock();
 						return;
 					}
 				}
 			}
 		}
 		socketfd.push_back(nullptr);
-		in_execution.push_back(1);
+		status.push_back(hast_web::BUSY);
 		raw_msg.push_back("");
 		thread_list.push_back(nullptr);
-		pending_done.push_back(true);
 		thread_list[a] = new std::thread(execute,a);
 		++alive_thread;
-		recv_mx.unlock();
+		thread_mx.unlock();
 	}
 };

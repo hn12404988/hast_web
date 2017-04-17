@@ -18,15 +18,17 @@ enum WebSocketFrameType {
 
 	DONE_TEXT=0x01,
 	DONE_TEXT_BEHIND=0x02,
-	DONE_BINARY=0x03,
-	DONE_BINARY_BEHIND=0x04,
-	CONTIN_TEXT=0x05,
-	CONTIN_TEXT_BEHIND=0x06,
-	CONTIN_BINARY=0x07,
-	CONTIN_BINARY_BEHIND=0x08,
-	OVERSIZE_FRAME=0x09,
-	NO_MESSAGE=0x0A,
-	RECYCLE_THREAD=0x0B,
+	DONE_TEXT_CONTIN=0x03,
+	DONE_BINARY=0x04,
+	DONE_BINARY_BEHIND=0x05,
+	DONE_BINARY_CONTIN=0x06,
+	CONTIN_TEXT=0x07,
+	CONTIN_TEXT_BEHIND=0x08,
+	CONTIN_BINARY=0x09,
+	CONTIN_BINARY_BEHIND=0x0A,
+	OVERSIZE_FRAME=0x0B,
+	NO_MESSAGE=0x0C,
+	RECYCLE_THREAD=0x0D,
 
 	TEXT_FRAME=0x81,
 	BINARY_FRAME=0x82,
@@ -46,18 +48,29 @@ namespace hast_web{
 		const int listen_pending{50};
 		const int transport_size{100};
 		struct epoll_event ev,ev_tmp, events[MAX_EVENTS];
-		int host_socket {0};
-		std::map<short int,std::list<std::string>* > pending;
+		int host_socket {0}, last_one {-1};
+		//std::map<short int,std::list<std::string>* > pending;
+		std::list<std::string> pending_msg;
+		std::list<sock_T> pending_socket;
+		std::list<bool> pending_done;
 	
-		std::mutex waiting_mx;
+		std::mutex waiting_mx,send_mx,close_mx;
 
 		void echo_type(const int type); //delete this when ready for production
 		bool single_poll(const int socket_index, const short int time);
-		void clear_pending(const short int thread_index);
-		bool pop_pending(const short int thread_index);
+		inline void epoll_on(const short int thread_index);
+		inline void clear_pending(sock_T socket_index);
+		/**
+		 * RETURN NO_MESSAGE
+		 * RETURN DONE_TEXT
+		 * RETURN CONTIN_TEXTE
+		 **/
+		WebSocketFrameType pop_pending(const short int thread_index);
+		bool msg_pop_pending(const short int thread_index);
+		std::string* push_pending(sock_T socket_index, char *msg, bool done);
 		void upgrade(std::string &headers,std::string &user,std::string &password);
-		WebSocketFrameType more_data(const short int thread_index);
-		void reset_recv(const short int thread_index);
+		WebSocketFrameType more_data(const short int thread_index, short int &count);
+		inline void reset_recv(const short int thread_index);
 		bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 		inline void recv_epoll();
 		void close_socket(const short int thread_index, const int line); //remove line when ready for production
@@ -81,6 +94,7 @@ namespace hast_web{
 		 * RETURN CONTIN_TEXT
 		 * RETURN NO_MESSAGE
 		 * RETURN ERROR_FRAME
+		 * RETURN DONE_TEXT_CONTIN
 		 **/
 		WebSocketFrameType more_recv(const short int thread_index);
 		void close_socket(const short int thread_index);

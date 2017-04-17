@@ -10,8 +10,6 @@ public:
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_connect {nullptr};
 	void start_accept();
 	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 0);
-	inline int get_socket_fd(const short int thread_index);
-	inline int get_socket_fd(SSL *ssl);
 	inline void echo_back_msg(const short int thread_index, std::string &msg);
 	inline void echo_back_msg(const short int thread_index, const char *msg);
 	inline void echo_back_msg(SSL *ssl, std::string &msg);
