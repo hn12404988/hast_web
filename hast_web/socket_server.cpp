@@ -210,22 +210,26 @@ namespace hast_web{
 		for(;;){
 			b = socketfd.size()-1;
 			for(;b>=0;--b){
-				if(status[b]==hast_web::READ){
+				if(status[recv_thread]==hast_web::READ_PREFIX){
+					break;
+				}
+				else if(status[b]==hast_web::READ){
+					++b;
 					continue;
 				}
 			}
-			waiting_mx.lock();
-			resize();
+			if(b>=0){
+				std::cout << "recv read pre: " << recv_thread << std::endl;
+				break;
+			}
+			wait_mx.lock();
+			//resize();
 			for(;;){
 				a = epoll_wait(epollfd, events, MAX_EVENTS, 3500);
 				if(a>0){
-					waiting_mx.unlock();
+					wait_mx.unlock();
 					break;
 				}
-			}
-			b = a - alive_thread + 1;
-			for(;b>0;--b){
-				add_thread();
 			}
 			--a;
 			for(;a>=0;--a){
@@ -254,10 +258,14 @@ namespace hast_web{
 				}
 			}
 			if(a>=0){
+				for(;a>=0;--a){
+					add_thread();
+				}
 				break;
 			}
 			else{
 				if(b==recv_thread){
+					add_thread();
 					break;
 				}
 			}
@@ -273,22 +281,25 @@ namespace hast_web{
 		for(;;){
 			b = socketfd.size()-1;
 			for(;b>=0;--b){
-				if(status[b]==hast_web::READ){
+				if(status[recv_thread]==hast_web::READ_PREFIX){
+					break;
+				}
+				else if(status[b]==hast_web::READ){
+					++b;
 					continue;
 				}
 			}
-			waiting_mx.lock();
-			resize();
+			if(b>=0){
+				break;
+			}
+			wait_mx.lock();
+			//resize();
 			for(;;){
 				a = epoll_wait(epollfd, events, MAX_EVENTS, 3500);
 				if(a>0){
-					waiting_mx.unlock();
+					wait_mx.unlock();
 					break;
 				}
-			}
-			b = a - alive_thread + 1;
-			for(;b>0;--b){
-				add_thread();
 			}
 			--a;
 			for(;a>=0;--a){
@@ -333,10 +344,14 @@ namespace hast_web{
 				}
 			}
 			if(a>=0){
+				for(;a>=0;--a){
+					add_thread();
+				}
 				break;
 			}
 			else{
 				if(b==recv_thread){
+					add_thread();
 					break;
 				}
 			}
@@ -480,13 +495,16 @@ namespace hast_web{
 	template<class sock_T>
 	WebSocketFrameType socket_server<sock_T>::more_recv(const short int thread_index){
 		hast_web::server_thread<sock_T>::raw_msg[thread_index].clear();
-		return more_data(thread_index);
+		//TODO Remove this useless short int.
+		short int useless;
+		return more_data(thread_index,useless);
 	}
 	
 	template<>
 	inline void socket_server<int>::epoll_on(const short int thread_index){
 		if(socketfd[thread_index]>=0){
 			ev.data.fd = socketfd[thread_index];
+			std::cout << "EPOLL ON: " << ev.data.fd << std::endl;
 			epoll_ctl(epollfd, EPOLL_CTL_MOD, socketfd[thread_index],&ev);
 		}
 	}
@@ -500,6 +518,7 @@ namespace hast_web{
 			close_mx.unlock();
 			if(fd>=0){
 				ev.data.fd = fd;
+				std::cout << "EPOLL ON: " << ev.data.fd << std::endl;
 				epoll_ctl(epollfd, EPOLL_CTL_MOD, fd,&ev);
 			}
 		}
@@ -556,13 +575,19 @@ namespace hast_web{
 	}
 
 	template<class sock_T>
-	bool socket_server<sock_T>::msg_pop_pending(const short int thread_index){
+	short int socket_server<sock_T>::msg_pop_pending(const short int thread_index){
+		/**
+		 * RETURN -1: No further action, kepp going.
+		 * RETURN  0: Get msg, handle this request.
+		 * RETURN >0: Get msg, and this socket has more msgs coming.
+		 **/
 		int type;
+		short int count {0};
 		type = pop_pending(thread_index);
 		if(type!=NO_MESSAGE){
 			if(type==CONTIN_TEXT){
 				for(;;){
-					type = more_data(thread_index);
+					type = more_data(thread_index,count);
 					if(type==CONTIN_TEXT){
 						continue;
 					}
@@ -572,30 +597,43 @@ namespace hast_web{
 				}
 				if(type==DONE_TEXT){
 					epoll_on(thread_index);
-					return true;
+					return 0;
 				}
 				else if(type==DONE_TEXT_CONTIN){
-					return true;
+					return count;
 				}
 				else{
 					close_socket(thread_index,__LINE__);
-					return false;
+					return -1;
 				}
 			}
 			else{
-				return true;
+				return 0;
 			}
 		}
 		else{
-			return false;
+			return -1;
 		}
 	}
 	
 	template<class sock_T>
 	bool socket_server<sock_T>::msg_recv(const short int thread_index){
 		int type;
-		if(msg_pop_pending(thread_index)==true){
+		short int a,count {0};
+		count = msg_pop_pending(thread_index);
+		std::cout << "msg_recv count 1: " << count << std::endl;
+		if(count==0){
 			return true;
+		}
+		else if(count>0){
+			for(;count>0;--count){
+				a = hast_web::server_thread<sock_T>::get_thread();
+				if(a==-1){
+					hast_web::server_thread<sock_T>::add_thread();
+					continue;
+				}
+				hast_web::server_thread<sock_T>::status[a] = hast_web::READ_PREFIX;
+			}
 		}
 		for(;;){
 			hast_web::server_thread<sock_T>::raw_msg[thread_index].clear();
@@ -605,7 +643,9 @@ namespace hast_web{
 			if(hast_web::server_thread<sock_T>::recv_thread==-1){
 				hast_web::server_thread<sock_T>::recv_thread = thread_index;
 				hast_web::server_thread<sock_T>::thread_mx.unlock();
+				std::cout << "recv thread: " << thread_index << std::endl;
 				recv_epoll();
+				std::cout << "recv leave: " << thread_index << std::endl;
 			}
 			else{
 				hast_web::server_thread<sock_T>::thread_mx.unlock();
@@ -623,15 +663,29 @@ namespace hast_web{
 					}
 				}
 				else{
-					waiting_mx.lock();
-					waiting_mx.unlock();
+					wait_mx.lock();
+					wait_mx.unlock();
 				}
 			}
 			if(hast_web::server_thread<sock_T>::status[thread_index]==hast_web::WAIT){
 				continue;
 			}
 			else if(hast_web::server_thread<sock_T>::status[thread_index]==hast_web::READ_PREFIX){
-				if(msg_pop_pending(thread_index)==true){
+				count = msg_pop_pending(thread_index);
+				std::cout << "msg_recv count 2: " << count << std::endl;
+				if(count==0){
+					hast_web::server_thread<sock_T>::status[thread_index] = hast_web::BUSY;
+					return true;
+				}
+				else if(count>0){
+					for(;count>0;--count){
+						a = hast_web::server_thread<sock_T>::get_thread();
+						if(a==-1){
+							hast_web::server_thread<sock_T>::add_thread();
+							continue;
+						}
+						hast_web::server_thread<sock_T>::status[a] = hast_web::READ_PREFIX;
+					}
 					hast_web::server_thread<sock_T>::status[thread_index] = hast_web::BUSY;
 					return true;
 				}
@@ -640,7 +694,7 @@ namespace hast_web{
 				}
 			}
 			got_it = true;
-			short int count {0};
+			count = 0;
 			for(;;){
 				type = more_data(thread_index,count);
 				if(type==CONTIN_TEXT){
@@ -665,19 +719,29 @@ namespace hast_web{
 					}
 				}
 			}
+			std::cout << "msg_recv count 3: " << count << std::endl;
 			if(type==DONE_TEXT_CONTIN){
-				short int tmp;
 				for(;count>0;--count){
-					tmp = hast_web::server_thread<sock_T>::get_thread();
-					if(tmp==-1){
+					a = hast_web::server_thread<sock_T>::get_thread();
+					std::cout << "msg_recv thread 3: " << a << std::endl;
+					if(a==-1){
 						hast_web::server_thread<sock_T>::add_thread();
 						continue;
 					}
-					hast_web::server_thread<sock_T>::status[tmp] = hast_web::READ_PREFIX;
+					hast_web::server_thread<sock_T>::status[a] = hast_web::READ_PREFIX;
 				}
 			}
 			else if(type==DONE_TEXT){
 				epoll_on(thread_index);
+				for(;count>0;--count){
+					a = hast_web::server_thread<sock_T>::get_thread();
+					std::cout << "msg_recv thread 4: " << a << std::endl;
+					if(a==-1){
+						hast_web::server_thread<sock_T>::add_thread();
+						continue;
+					}
+					hast_web::server_thread<sock_T>::status[a] = hast_web::READ_PREFIX;
+				}
 			}
 			hast_web::server_thread<sock_T>::status[thread_index] = hast_web::BUSY;
 			return true;
@@ -726,15 +790,17 @@ namespace hast_web{
 					}
 				}
 				else{
-					waiting_mx.lock();
-					waiting_mx.unlock();
+					wait_mx.lock();
+					wait_mx.unlock();
 				}
 			}
 			if(hast_web::server_thread<sock_T>::status[thread_index]==hast_web::WAIT){
 				continue;
 			}
 			got_it = true;
-			type = more_data(thread_index);
+			//TODO Remove this useless short int.
+			short int useless;
+			type = more_data(thread_index,useless);
 			if(type==ERROR_FRAME){
 				continue;
 			}

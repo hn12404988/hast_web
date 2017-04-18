@@ -54,7 +54,7 @@ namespace hast_web{
 		std::list<sock_T> pending_socket;
 		std::list<bool> pending_done;
 	
-		std::mutex waiting_mx,send_mx,close_mx;
+		std::mutex wait_mx,send_mx,close_mx;
 
 		void echo_type(const int type); //delete this when ready for production
 		bool single_poll(const int socket_index, const short int time);
@@ -66,7 +66,7 @@ namespace hast_web{
 		 * RETURN CONTIN_TEXTE
 		 **/
 		WebSocketFrameType pop_pending(const short int thread_index);
-		bool msg_pop_pending(const short int thread_index);
+		short int msg_pop_pending(const short int thread_index);
 		std::string* push_pending(sock_T socket_index, char *msg, bool done);
 		void upgrade(std::string &headers,std::string &user,std::string &password);
 		WebSocketFrameType more_data(const short int thread_index, short int &count);

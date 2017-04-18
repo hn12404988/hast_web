@@ -90,12 +90,13 @@ namespace hast_web{
 				if(status[b]==hast_web::WAIT && thread_list[b]!=nullptr){
 					status[b] = hast_web::RECYCLE;
 				}
-				else if(status[b]==2){
+				else if(status[b]==hast_web::RECYCLE){
 				}
 				else{
 					continue;
 				}
 				if(thread_list[b]->joinable()==true){
+					std::cout << "DELETE THREAD: " << b << std::endl;
 					thread_list[b]->join();
 					delete thread_list[b];
 					thread_list[b] = nullptr;
@@ -120,10 +121,16 @@ namespace hast_web{
 			}
 		}
 		if(a==-1){
-			a = recv_thread;
+			if(status[recv_thread]==hast_web::WAIT){
+				a = recv_thread;
+				status[a]==hast_web::GET;
+			}
 		}
-		status[a]==hast_web::GET;
+		else{
+			status[a]==hast_web::GET;
+		}
 		thread_mx.unlock();
+		std::cout << "GET THREAD: " << a << std::endl;
 		return a;
 	}
 
@@ -136,6 +143,7 @@ namespace hast_web{
 			--a;
 			for(;a>=0;--a){
 				if(thread_list[a]==nullptr){
+					std::cout << "ADD THREAD OLD: " << a << std::endl;
 					thread_list[a] = new std::thread(execute,a);
 					++alive_thread;
 					break;
@@ -150,6 +158,7 @@ namespace hast_web{
 				if(max_amount>0){
 					if(a>=max_amount){
 						thread_mx.unlock();
+						std::cout << "ADD THREAD FAIL" << std::endl;
 						return;
 					}
 				}
@@ -162,6 +171,7 @@ namespace hast_web{
 		thread_list[a] = new std::thread(execute,a);
 		++alive_thread;
 		thread_mx.unlock();
+		std::cout << "ADD THREAD NEW: " << a << std::endl;
 	}
 
 	template<>
@@ -173,6 +183,7 @@ namespace hast_web{
 			--a;
 			for(;a>=0;--a){
 				if(thread_list[a]==nullptr){
+					std::cout << "ADD THREAD OLD: " << a << std::endl;
 					thread_list[a] = new std::thread(execute,a);
 					++alive_thread;
 					break;
@@ -187,6 +198,7 @@ namespace hast_web{
 				if(max_amount>0){
 					if(a>=max_amount){
 						thread_mx.unlock();
+						std::cout << "ADD THREAD FAIL" << std::endl;
 						return;
 					}
 				}
@@ -199,5 +211,6 @@ namespace hast_web{
 		thread_list[a] = new std::thread(execute,a);
 		++alive_thread;
 		thread_mx.unlock();
+		std::cout << "ADD THREAD NEW: " << a << std::endl;
 	}
 };
