@@ -66,6 +66,11 @@ namespace hast_web{
 		 * RETURN CONTIN_TEXTE
 		 **/
 		WebSocketFrameType pop_pending(const short int thread_index);
+		/**
+		 * RETURN -1: No further action, kepp going.
+		 * RETURN  0: Get msg, handle this request.
+		 * RETURN >0: Get msg, and this socket has more msgs coming.
+		 **/
 		short int msg_pop_pending(const short int thread_index);
 		std::string* push_pending(sock_T socket_index, char *msg, bool done);
 		void upgrade(std::string &headers,std::string &user,std::string &password);

@@ -28,6 +28,7 @@ namespace hast_web{
 		SSL_CTX *ctx {nullptr};
 		bool wss_init(const char* crt, const char*key);
 		short int get_thread();
+		short int get_thread_no_recv();
 		inline void resize();
 		inline void add_thread();
 	public:

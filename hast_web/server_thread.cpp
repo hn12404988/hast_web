@@ -134,6 +134,27 @@ namespace hast_web{
 		return a;
 	}
 
+	template<class sock_T>
+	short int server_thread<sock_T>::get_thread_no_recv(){
+		thread_mx.lock();
+		short int a;
+		a = socketfd.size()-1;
+		for(;a>=0;--a){
+			if(recv_thread==a){
+				continue;
+			}
+			if(status[a]==hast_web::WAIT){
+				break;
+			}
+		}
+		if(a>=0){
+			status[a]==hast_web::GET;
+		}
+		thread_mx.unlock();
+		std::cout << "GET THREAD NO RECV: " << a << std::endl;
+		return a;
+	}
+
 	template<>
 	inline void server_thread<int>::add_thread(){
 		short int a;

@@ -576,11 +576,6 @@ namespace hast_web{
 
 	template<class sock_T>
 	short int socket_server<sock_T>::msg_pop_pending(const short int thread_index){
-		/**
-		 * RETURN -1: No further action, kepp going.
-		 * RETURN  0: Get msg, handle this request.
-		 * RETURN >0: Get msg, and this socket has more msgs coming.
-		 **/
 		int type;
 		short int count {0};
 		type = pop_pending(thread_index);
@@ -627,7 +622,9 @@ namespace hast_web{
 		}
 		else if(count>0){
 			for(;count>0;--count){
-				a = hast_web::server_thread<sock_T>::get_thread();
+				//BUG Thread is probably locked in wait_mx.
+				//TODO Make recv_thread can take job from here.
+				a = hast_web::server_thread<sock_T>::get_thread_no_recv();
 				if(a==-1){
 					hast_web::server_thread<sock_T>::add_thread();
 					continue;
@@ -679,7 +676,9 @@ namespace hast_web{
 				}
 				else if(count>0){
 					for(;count>0;--count){
-						a = hast_web::server_thread<sock_T>::get_thread();
+						//BUG Thread is probably locked in wait_mx.
+						//TODO Make recv_thread can take job from here.
+						a = hast_web::server_thread<sock_T>::get_thread_no_recv();
 						if(a==-1){
 							hast_web::server_thread<sock_T>::add_thread();
 							continue;
