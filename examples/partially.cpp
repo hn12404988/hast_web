@@ -129,26 +129,21 @@ auto execute = [&](const short int index){
 };
 
 void on_close(const int socket_index){
-	//A socket is closed. Do something here.
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
 bool on_open(SSL* ssl, std::string &user, std::string &password){
-	//A socket is opened. Do something here.
 	std::cout << "OPEN: " << server.get_socket_fd(ssl) << std::endl;
 	std::cout << "USER: " << user << std::endl;
 	std::cout << "PASSWORD: " << password << std::endl;
 	server.echo_back_msg(ssl,"Welcome!!");
-	/**
-	 * Return true if you want to accept this connection, else return false to close it.
-	 **/
 	return true;
 }
 
 int main (int argc, char* argv[]){
-	server.execute = execute; //You must assign this member.
-	server.on_close = on_close; //Optional
-	server.on_open = on_open; //Optional
+	server.execute = execute; 
+	server.on_close = on_close;
+	server.on_open = on_open;
 	if(server.init("/home/tls/server.crt","/home/tls/server.key","8888",3)==true){
 		server.start_accept();
 	}

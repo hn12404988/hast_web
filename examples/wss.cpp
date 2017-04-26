@@ -3,7 +3,7 @@
  * More details about class memebers or methods in wiki page of hast_web repository.
  **/
 #include <iostream>
-#include <hast_web/wss_server.h>
+#include <hast_web/wss_server.hpp>
 
 wss_server server;
 
@@ -14,14 +14,13 @@ wss_server server;
 auto execute = [&](const short int thread_index){
 	//Do something when a thread initiated.
 	std::string str;
-	int fd;
 	while(server.msg_recv(thread_index)==true){
 		//This section is how a request be processed.
-		fd = server.get_socket_fd(thread_index);
-		std::cout << "msg: " << server.raw_msg[thread_index] << std::endl;
-		std::cout << "EXECUTE: " << fd << std::endl;
-		std::cout << "thread: " << thread_index << std::endl;
-		str = "{\"reply\":\"Got it!!\"}";
+		//std::cout << "msg: " << server.raw_msg[thread_index] << std::endl;
+		//std::cout << "socketfd: " << server.socketfd[thread_index] << std::endl;
+		//std::cout << "thread: " << thread_index << std::endl;
+		str = "{\"reply\":\"got it\"}";
+		std::cout << "Reply: " << str << std::endl;
 		server.echo_back_msg(thread_index,str);
 	}
 	//This thread gonna be recycled. Maybe you need to free() or delete some variables.
@@ -30,19 +29,21 @@ auto execute = [&](const short int thread_index){
 };
 
 void on_close(const int socket_index){
-	//A socket is closed. Do something here.
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
-bool on_open(SSL* ssl, std::string &user, std::string &password){
-	//A socket is opened. Do something here.
-	std::cout << "OPEN: " << server.get_socket_fd(ssl) << std::endl;
-	std::cout << "USER: " << user << std::endl;
-	std::cout << "PASSWORD: " << password << std::endl;
-	server.echo_back_msg(ssl,"Welcome!!");
-	/**
-	 * Return true if you want to accept this connection, else return false to close it.
-	 **/
+bool on_connect(std::string &user, std::string &password){
+	std::cout << "CONNECT" << std::endl;
+	std::cout << "User: " << user << std::endl;
+	std::cout << "PW: " << password << std::endl;
+	return true;
+}
+
+bool on_open(SSL *ssl, std::string &user, std::string &password){
+	std::cout << "OPEN" << std::endl;
+	std::cout << "User: " << user << std::endl;
+	std::cout << "PW: " << password << std::endl;
+	server.echo_back_msg(ssl,"WELCOME!!");
 	return true;
 }
 
@@ -50,6 +51,12 @@ int main (int argc, char* argv[]){
 	server.execute = execute; //You must assign this member.
 	server.on_close = on_close; //Optional
 	server.on_open = on_open; //Optional
+	server.on_connect = on_connect; //Optional
+	/**
+	 * Change following tls files' path to yours.
+	 * `3` means this program can use 3 threads at most.
+	 * `8888` means the port that this program is listening.
+	 **/
 	if(server.init("/home/tls/server.crt","/home/tls/server.key","8888",3)==true){
 		server.start_accept();
 	}
