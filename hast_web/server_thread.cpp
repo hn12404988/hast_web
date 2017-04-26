@@ -85,14 +85,12 @@ namespace hast_web{
 			if(status[a]==hast_web::WAIT && thread_list[a]!=nullptr){
 				if(amount>0){
 					status[a] = hast_web::RECYCLE;
-					std::cout << "MARK DELETE THREAD: " << a << std::endl;
 					--amount;
 					continue;
 				}
 			}
 			else if(status[a]==hast_web::RECYCLE){
 				if(thread_list[a]->joinable()==true){
-					std::cout << "DELETE THREAD: " << a << std::endl;
 					thread_list[a]->join();
 					delete thread_list[a];
 					thread_list[a] = nullptr;
