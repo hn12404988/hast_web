@@ -289,11 +289,12 @@ namespace hast_web{
 
 	template<>
 	inline void socket_server<SSL*>::recv_epoll(){
-		short int a,b;
-		int c;
+		short int a,b,wait_amount {0};
+		int c,loop_amount {0};
 		while(got_it==false){}
 		for(;;){
 			b = socketfd.size()-1;
+			wait_amount = 0;
 			for(;b>=0;--b){
 				if(status[recv_thread]==hast_web::READ_PREFIX){
 					break;
@@ -302,12 +303,27 @@ namespace hast_web{
 					++b;
 					continue;
 				}
+				else if(status[b]==hast_web::WAIT){
+					++wait_amount;
+				}
 			}
 			if(b>=0){
 				break;
 			}
 			wait_mx.lock();
-			//resize();
+			if(wait_amount>1){
+				++loop_amount;
+				if(loop_amount>resize_while_loop){
+					resize(wait_amount-1);
+				}
+				else{
+					resize(0);
+				}
+			}
+			else{
+				resize(0);
+				loop_amount = 0;
+			}
 			for(;;){
 				a = epoll_wait(epollfd, events, MAX_EVENTS, 3500);
 				if(a>0){
