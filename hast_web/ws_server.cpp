@@ -62,7 +62,6 @@ void ws_server::start_accept(){
 			if(recv_thread==-1){
 				add_thread();
 			}
-			++alive_socket;
 		}
 	}
 }

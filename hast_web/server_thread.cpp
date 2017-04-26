@@ -75,32 +75,31 @@ namespace hast_web{
 	}
 
 	template<class sock_T>
-	inline void server_thread<sock_T>::resize(){
-		short int a,b;
-		a = alive_thread - alive_socket - 1;
-		if(a>0){
-			b = socketfd.size()-1;
-			for(;b>=0;--b){
-				if(recv_thread==b){
+	inline void server_thread<sock_T>::resize(short int amount){
+		short int a;
+		a = socketfd.size()-1;
+		for(;a>=0;--a){
+			if(recv_thread==a){
+				continue;
+			}
+			if(status[a]==hast_web::WAIT && thread_list[a]!=nullptr){
+				if(amount>0){
+					status[a] = hast_web::RECYCLE;
+					std::cout << "MARK DELETE THREAD: " << a << std::endl;
+					--amount;
 					continue;
 				}
-				if(a==0){
-					break;
-				}
-				if(status[b]==hast_web::WAIT && thread_list[b]!=nullptr){
-					status[b] = hast_web::RECYCLE;
-				}
-				else if(status[b]==hast_web::RECYCLE){
+			}
+			else if(status[a]==hast_web::RECYCLE){
+				if(thread_list[a]->joinable()==true){
+					std::cout << "DELETE THREAD: " << a << std::endl;
+					thread_list[a]->join();
+					delete thread_list[a];
+					thread_list[a] = nullptr;
+					status[a] = hast_web::BUSY;
 				}
 				else{
-					continue;
-				}
-				if(thread_list[b]->joinable()==true){
-					thread_list[b]->join();
-					delete thread_list[b];
-					thread_list[b] = nullptr;
-					--alive_thread;
-					--a;
+					//TODO Something Wrong
 				}
 			}
 		}
@@ -162,7 +161,6 @@ namespace hast_web{
 			for(;a>=0;--a){
 				if(thread_list[a]==nullptr){
 					thread_list[a] = new std::thread(execute,a);
-					++alive_thread;
 					break;
 				}
 			}
@@ -185,7 +183,6 @@ namespace hast_web{
 		raw_msg.push_back("");
 		thread_list.push_back(nullptr);
 		thread_list[a] = new std::thread(execute,a);
-		++alive_thread;
 		thread_mx.unlock();
 	}
 
@@ -199,7 +196,6 @@ namespace hast_web{
 			for(;a>=0;--a){
 				if(thread_list[a]==nullptr){
 					thread_list[a] = new std::thread(execute,a);
-					++alive_thread;
 					break;
 				}
 			}
@@ -222,7 +218,6 @@ namespace hast_web{
 		raw_msg.push_back("");
 		thread_list.push_back(nullptr);
 		thread_list[a] = new std::thread(execute,a);
-		++alive_thread;
 		thread_mx.unlock();
 	}
 };
