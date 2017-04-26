@@ -12,13 +12,13 @@ namespace hast_web{
 	const char READ {3};
 	const char READ_PREFIX {4};
 	const char GET {5};
+	
 	template<class sock_T>
 	class server_thread{
 	protected:
 		server_thread();
 		~server_thread();
-		int alive_socket {0};
-		short int max_amount {0}, alive_thread{0}, recv_thread {-1};
+		short int max_amount {0}, recv_thread {-1};
 		std::mutex thread_mx;
 		std::map<int,sock_T> *ssl_map {nullptr};
 
@@ -29,7 +29,7 @@ namespace hast_web{
 		bool wss_init(const char* crt, const char*key);
 		short int get_thread();
 		short int get_thread_no_recv();
-		inline void resize();
+		inline void resize(short int amount);
 		inline void add_thread();
 	public:
 		std::function<void(const short int)> execute {nullptr};
