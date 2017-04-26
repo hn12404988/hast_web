@@ -39,7 +39,7 @@ void ws_server::start_accept(){
 				continue;
 			}
 			if(on_connect!=nullptr){
-				if(on_connect(new_socket,user,password)==false){
+				if(on_connect(user,password)==false){
 					shutdown(new_socket,SHUT_RDWR);
 					close(new_socket);
 					continue;
