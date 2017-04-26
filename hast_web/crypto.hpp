@@ -1,5 +1,5 @@
-#ifndef hast_web_crypto_h
-#define	hast_web_crypto_h
+#ifndef hast_web_crypto_hpp
+#define	hast_web_crypto_hpp
 
 #include <string>
 #include <cmath>
@@ -208,5 +208,6 @@ public:
 		return key;
 	}
 };
-#endif
+
+#endif /* hast_web_crypto_hpp */
 

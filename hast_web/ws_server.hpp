@@ -1,5 +1,5 @@
-#ifndef hast_web_ws_server_h
-#define hast_web_ws_server_h
+#ifndef hast_web_ws_server_hpp
+#define hast_web_ws_server_hpp
 #include <hast_web/socket_server.hpp>
 
 class ws_server : public hast_web::socket_server<int>{
@@ -14,4 +14,4 @@ public:
 };
 
 #include <hast_web/ws_server.cpp>
-#endif
+#endif /* hast_web_ws_server_hpp */

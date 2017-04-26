@@ -1,5 +1,5 @@
-#ifndef hast_web_server_thread_h
-#define hast_web_server_thread_h
+#ifndef hast_web_server_thread_hpp
+#define hast_web_server_thread_hpp
 #include <mutex>
 #include <thread>
 #include <map>
@@ -38,4 +38,4 @@ namespace hast_web{
 	};
 };
 #include <hast_web/server_thread.cpp>
-#endif
+#endif /* hast_web_server_thread_hpp */

@@ -1,5 +1,5 @@
-#ifndef hast_web_socket_server_h
-#define hast_web_socket_server_h
+#ifndef hast_web_socket_server_hpp
+#define hast_web_socket_server_hpp
 #include <hast/tcp_config.hpp>
 #include <hast_web/server_thread.hpp>
 #include <sys/poll.h>
@@ -104,4 +104,4 @@ namespace hast_web{
 	};
 };
 #include <hast_web/socket_server.cpp>
-#endif
+#endif /* hast_web_socket_server_hpp */

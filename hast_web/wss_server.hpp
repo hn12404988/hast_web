@@ -1,5 +1,5 @@
-#ifndef hast_web_wss_server_h
-#define hast_web_wss_server_h
+#ifndef hast_web_wss_server_hpp
+#define hast_web_wss_server_hpp
 #include <hast_web/socket_server.hpp>
 
 class wss_server : public hast_web::socket_server<SSL*>{
@@ -17,4 +17,4 @@ public:
 };
 
 #include <hast_web/wss_server.cpp>
-#endif
+#endif /* hast_web_wss_server_hpp */
