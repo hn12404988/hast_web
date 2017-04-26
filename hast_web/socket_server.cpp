@@ -546,7 +546,10 @@ namespace hast_web{
 		}
 		else{
 			bool done;
-			hast_web::server_thread<sock_T>::raw_msg[thread_index] = pending_msg.front();
+			hast_web::server_thread<sock_T>::raw_msg[thread_index].clear();
+			while(hast_web::server_thread<sock_T>::raw_msg[thread_index]==""){
+				hast_web::server_thread<sock_T>::raw_msg[thread_index].assign(pending_msg.front());
+			}
 			pending_msg.pop_front();
 			hast_web::server_thread<sock_T>::socketfd[thread_index] = pending_socket.front();
 			pending_socket.pop_front();
