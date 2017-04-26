@@ -621,6 +621,7 @@ namespace hast_web{
 			return true;
 		}
 		else if(count>0){
+			/*
 			for(;count>0;--count){
 				//BUG Thread is probably locked in wait_mx.
 				//TODO Make recv_thread can take job from here.
@@ -631,6 +632,8 @@ namespace hast_web{
 				}
 				hast_web::server_thread<sock_T>::status[a] = hast_web::READ_PREFIX;
 			}
+			*/
+			return true;
 		}
 		for(;;){
 			hast_web::server_thread<sock_T>::raw_msg[thread_index].clear();
@@ -675,6 +678,7 @@ namespace hast_web{
 					return true;
 				}
 				else if(count>0){
+					/*
 					for(;count>0;--count){
 						//BUG Thread is probably locked in wait_mx.
 						//TODO Make recv_thread can take job from here.
@@ -685,6 +689,7 @@ namespace hast_web{
 						}
 						hast_web::server_thread<sock_T>::status[a] = hast_web::READ_PREFIX;
 					}
+					*/
 					hast_web::server_thread<sock_T>::status[thread_index] = hast_web::BUSY;
 					return true;
 				}
