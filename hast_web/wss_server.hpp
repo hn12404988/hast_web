@@ -7,7 +7,7 @@ protected:
 	void reset_accept(int socket_index,SSL *ssl = nullptr);
 public:
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_open {nullptr};
-	std::function<bool(std::string &user, std::string &password)> on_connect {nullptr};
+	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_connect {nullptr};
 	void start_accept();
 	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 0);
 	inline void echo_back_msg(const short int thread_index, std::string &msg);

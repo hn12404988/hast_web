@@ -106,7 +106,7 @@ void wss_server::start_accept(){
 				continue;
 			}
 			if(on_connect!=nullptr){
-				if(on_connect(user,password)==false){
+				if(on_connect(ssl,user,password)==false){
 					reset_accept(new_socket,ssl);
 					ssl = nullptr;
 					continue;
