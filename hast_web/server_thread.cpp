@@ -119,11 +119,11 @@ namespace hast_web{
 		if(a==-1){
 			if(status[recv_thread]==hast_web::WAIT){
 				a = recv_thread;
-				status[a]==hast_web::GET;
+				status[a] = hast_web::GET;
 			}
 		}
 		else{
-			status[a]==hast_web::GET;
+			status[a] = hast_web::GET;
 		}
 		thread_mx.unlock();
 		return a;
@@ -143,7 +143,7 @@ namespace hast_web{
 			}
 		}
 		if(a>=0){
-			status[a]==hast_web::GET;
+			status[a] = hast_web::GET;
 		}
 		thread_mx.unlock();
 		return a;

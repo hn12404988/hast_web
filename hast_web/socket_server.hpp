@@ -48,7 +48,7 @@ namespace hast_web{
 		const int transport_size{100};
 		const int resize_while_loop{20};
 		struct epoll_event ev,ev_tmp, events[MAX_EVENTS];
-		int host_socket {0}, last_one {-1};
+		int host_socket {0};
 		std::list<std::string> pending_msg;
 		std::list<sock_T> pending_socket;
 		std::list<bool> pending_done;
