@@ -18,10 +18,7 @@ void ws_server::start_accept(){
 			for(;;){
 				l = recv(new_socket, new_char, transport_size, 0);
 				if(l>0){
-					l += msg.length();
-					msg.append(new_char);
-					msg.resize(l);
-					l = 0;
+					msg.append(new_char,l);
 				}
 				else{
 					break;

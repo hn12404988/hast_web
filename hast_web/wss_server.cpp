@@ -67,10 +67,7 @@ void wss_server::start_accept(){
 			for(;;){
 				l = SSL_read(ssl, new_char, transport_size);
 				if(l>0){
-					l += msg.length();
-					msg.append(new_char);
-					msg.resize(l);
-					l = 0;
+					msg.append(new_char,l);
 				}
 				else{
 					/*
