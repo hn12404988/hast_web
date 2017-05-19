@@ -18,7 +18,8 @@ void wss_server::start_accept(){
 		if(new_socket>0){
 			msg.clear();
 			if(single_poll(new_socket,3000)==false){
-				reset_accept(new_socket);
+				shutdown(new_socket,SHUT_RDWR);
+				close(new_socket);
 				continue;
 			}
 			if(ssl==nullptr){

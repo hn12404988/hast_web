@@ -153,12 +153,12 @@ namespace hast_web{
 	template<class sock_T>
 	bool socket_server<sock_T>::init(hast::tcp_socket::port port, short int unsigned max){
 		hast_web::server_thread<sock_T>::max_amount = max;
-		if(getaddrinfo(NULL, port.c_str(), &hints, &res)!=0){
+		if(getaddrinfo(nullptr, port.c_str(), &hints, &res)!=0){
 			return false;
 		}
-		struct addrinfo *p{NULL};
+		struct addrinfo *p {nullptr};
 		int flag {1};
-		for(p = res; p != NULL; p = p->ai_next) {
+		for(p = res; p != nullptr; p = p->ai_next) {
 			if ((host_socket = socket(p->ai_family, p->ai_socktype,
 									  p->ai_protocol)) == -1) {
 				continue;
@@ -173,7 +173,8 @@ namespace hast_web{
 			}
 			break;
 		}
-		if(p==NULL){
+		if(p==nullptr){
+			freeaddrinfo(res); 
 			return false;
 		}
 		freeaddrinfo(res); 
