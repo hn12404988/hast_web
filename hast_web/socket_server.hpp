@@ -83,7 +83,7 @@ namespace hast_web{
 		socket_server();
 		~socket_server();
 		std::function<void(const int)> on_close {nullptr};
-		bool init(hast::tcp_socket::port port, short int unsigned max = 0);
+		bool init(hast::tcp_socket::port port, short int unsigned max = 2);
 		bool msg_recv(const short int thread_index);
 		/**
 		 * RETURN DONE_TEXT

@@ -28,7 +28,6 @@ namespace hast_web{
 	void socket_server<int>::close_socket(const short int thread_index){
 		close_mx.lock();
 		int socket = socketfd[thread_index];
-		short int a;
 		if(socket<0){
 			close_mx.unlock();
 			return;
@@ -39,12 +38,7 @@ namespace hast_web{
 		epoll_ctl(epollfd, EPOLL_CTL_DEL, socket,nullptr);
 		shutdown(socket,SHUT_RDWR);
 		close(socket);
-		a = socketfd.size()-1;
-		for(;a>=0;--a){
-			if(socketfd[a]==socket){
-				socketfd[a] = -1;
-			}
-		}
+		socketfd[thread_index] = -1;
 		clear_pending(socket);
 		close_mx.unlock();
 	}
@@ -58,28 +52,19 @@ namespace hast_web{
 			return;
 		}
 		int socket = SSL_get_fd(tmp_ssl);
-		short int a;
 		if(socket<0){
 			close_mx.unlock();
 			return;
 		}
-		tmp_ssl = (*ssl_map)[socket];
-		if(tmp_ssl!=nullptr){
-			SSL_free(tmp_ssl);
-			(*ssl_map)[socket] = nullptr;
-		}
+		(*ssl_map)[socket] = nullptr;
+		SSL_free(tmp_ssl);
+		socketfd[thread_index] = nullptr;
 		if(on_close!=nullptr){
 			on_close(socket);
 		}
 		epoll_ctl(epollfd, EPOLL_CTL_DEL, socket,nullptr);
 		shutdown(socket,SHUT_RDWR);
 		close(socket);
-		a = socketfd.size()-1;
-		for(;a>=0;--a){
-			if(socketfd[a]==tmp_ssl){
-				socketfd[a] = nullptr;
-			}
-		}
 		clear_pending(tmp_ssl);
 		close_mx.unlock();
 	}
@@ -152,7 +137,11 @@ namespace hast_web{
 
 	template<class sock_T>
 	bool socket_server<sock_T>::init(hast::tcp_socket::port port, short int unsigned max){
-		hast_web::server_thread<sock_T>::max_amount = max;
+		if(max==0){
+			return false;
+		}
+		hast_web::server_thread<sock_T>::max_thread = max;
+		hast_web::server_thread<sock_T>::init();
 		if(getaddrinfo(nullptr, port.c_str(), &hints, &res)!=0){
 			return false;
 		}
@@ -201,21 +190,21 @@ namespace hast_web{
 		int c,loop_amount {0};
 		while(got_it==false){}
 		for(;;){
-			b = socketfd.size()-1;
+			b = 0;
 			wait_amount = 0;
-			for(;b>=0;--b){
+			for(;b<max_thread;++b){
 				if(status[recv_thread]==hast_web::READ_PREFIX){
 					break;
 				}
 				else if(status[b]==hast_web::READ){
-					++b;
+					--b;
 					continue;
 				}
 				else if(status[b]==hast_web::WAIT){
 					++wait_amount;
 				}
 			}
-			if(b>=0){
+			if(b<max_thread){
 				break;
 			}
 			wait_mx.lock();
@@ -287,21 +276,21 @@ namespace hast_web{
 		int c,loop_amount {0};
 		while(got_it==false){}
 		for(;;){
-			b = socketfd.size()-1;
+			b = 0;
 			wait_amount = 0;
-			for(;b>=0;--b){
+			for(;b<max_thread;++b){
 				if(status[recv_thread]==hast_web::READ_PREFIX){
 					break;
 				}
 				else if(status[b]==hast_web::READ){
-					++b;
+					--b;
 					continue;
 				}
 				else if(status[b]==hast_web::WAIT){
 					++wait_amount;
 				}
 			}
-			if(b>=0){
+			if(b<max_thread){
 				break;
 			}
 			wait_mx.lock();

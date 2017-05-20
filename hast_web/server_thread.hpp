@@ -18,14 +18,16 @@ namespace hast_web{
 	protected:
 		server_thread();
 		~server_thread();
-		short int max_amount {0}, recv_thread {-1};
+		short int max_thread {0}, recv_thread {-1};
 		std::mutex thread_mx;
 		std::map<int,sock_T> *ssl_map {nullptr};
 
-		std::vector<char> status;
-		std::vector<std::thread*> thread_list;
+		char *status {nullptr};
+		std::thread **thread_list {nullptr};
 
 		SSL_CTX *ctx {nullptr};
+		void destruct();
+		void init();
 		bool wss_init(const char* crt, const char*key);
 		short int get_thread();
 		short int get_thread_no_recv();
@@ -33,8 +35,8 @@ namespace hast_web{
 		inline void add_thread();
 	public:
 		std::function<void(const short int)> execute {nullptr};
-		std::vector<sock_T> socketfd;
-		std::vector<std::string> raw_msg;
+		sock_T *socketfd {nullptr};
+		std::string *raw_msg {nullptr};
 	};
 };
 #include <hast_web/server_thread.cpp>

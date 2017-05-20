@@ -6,7 +6,54 @@ namespace hast_web{
 	server_thread<SSL*>::server_thread(){
 		ssl_map = new std::map<int,SSL*>;
 	}
-	
+
+	template<>
+	void server_thread<int>::init(){
+		short int a;
+		status = new char [max_thread];
+		raw_msg = new std::string [max_thread];
+		socketfd = new int [max_thread];
+		thread_list = new std::thread* [max_thread];
+		for(a=0;a<max_thread;++a){
+			status[a] = hast_web::BUSY;
+			thread_list[a] = nullptr;
+			raw_msg[a] = "";
+			socketfd[a] = -1;
+		}
+	}
+
+	template<>
+	void server_thread<SSL*>::init(){
+		short int a;
+		status = new char [max_thread];
+		raw_msg = new std::string [max_thread];
+		socketfd = new SSL* [max_thread];
+		thread_list = new std::thread* [max_thread];
+		for(a=0;a<max_thread;++a){
+			status[a] = hast_web::BUSY;
+			thread_list[a] = nullptr;
+			raw_msg[a] = "";
+			socketfd[a] = nullptr;
+		}
+	}
+
+	template<class sock_T>
+	void server_thread<sock_T>::destruct(){
+		short int a {0};
+		delete [] status;
+		delete [] raw_msg;
+		delete [] socketfd;
+		for(;a<max_thread;++a){
+			if(thread_list[a]!=nullptr){
+				if(thread_list[a]->joinable()==true){
+					thread_list[a]->join();
+					delete thread_list[a];
+				}
+			}
+		}
+		delete [] thread_list;
+	}
+
 	template<>
 	bool server_thread<SSL*>::wss_init(const char* crt, const char* key){
 		SSL_load_error_strings();	
@@ -35,18 +82,10 @@ namespace hast_web{
 
 	template<>
 	server_thread<SSL*>::~server_thread(){
-		short int a;
 		std::map<int,SSL*>::iterator it;
 		std::map<int,SSL*>::iterator it_end;
-		a = thread_list.size()-1;
-		for(;a>=0;--a){
-			if(thread_list[a]!=nullptr){
-				if(thread_list[a]->joinable()==true){
-					thread_list[a]->join();
-					delete thread_list[a];
-				}
-			}
-		}
+		it = ssl_map->begin();
+		it_end = ssl_map->end();
 		for(;it!=it_end;++it){
 			if(it->second!=nullptr){
 				SSL_free(it->second);
@@ -58,27 +97,18 @@ namespace hast_web{
 		}
 		ERR_free_strings();
 		EVP_cleanup();
+		destruct();
 	}
 
 	template<>
 	server_thread<int>::~server_thread(){
-		short int a;
-		a = thread_list.size()-1;
-		for(;a>=0;--a){
-			if(thread_list[a]!=nullptr){
-				if(thread_list[a]->joinable()==true){
-					thread_list[a]->join();
-					delete thread_list[a];
-				}
-			}
-		}
+		destruct();
 	}
 
 	template<class sock_T>
 	inline void server_thread<sock_T>::resize(short int amount){
-		short int a;
-		a = socketfd.size()-1;
-		for(;a>=0;--a){
+		short int a {0};
+		for(;a<max_thread;++a){
 			if(recv_thread==a){
 				continue;
 			}
@@ -106,9 +136,8 @@ namespace hast_web{
 	template<class sock_T>
 	short int server_thread<sock_T>::get_thread(){
 		thread_mx.lock();
-		short int a;
-		a = socketfd.size()-1;
-		for(;a>=0;--a){
+		short int a {0};
+		for(;a<max_thread;++a){
 			if(recv_thread==a){
 				continue;
 			}
@@ -116,10 +145,13 @@ namespace hast_web{
 				break;
 			}
 		}
-		if(a==-1){
+		if(a==max_thread){
 			if(status[recv_thread]==hast_web::WAIT){
 				a = recv_thread;
 				status[a] = hast_web::GET;
+			}
+			else{
+				a = -1;
 			}
 		}
 		else{
@@ -132,9 +164,8 @@ namespace hast_web{
 	template<class sock_T>
 	short int server_thread<sock_T>::get_thread_no_recv(){
 		thread_mx.lock();
-		short int a;
-		a = socketfd.size()-1;
-		for(;a>=0;--a){
+		short int a {0};
+		for(;a<max_thread;++a){
 			if(recv_thread==a){
 				continue;
 			}
@@ -142,80 +173,26 @@ namespace hast_web{
 				break;
 			}
 		}
-		if(a>=0){
+		if(a==max_thread){
 			status[a] = hast_web::GET;
+		}
+		else{
+			a = -1;
 		}
 		thread_mx.unlock();
 		return a;
 	}
 
-	template<>
-	inline void server_thread<int>::add_thread(){
-		short int a;
+	template<class sock_T>
+	inline void server_thread<sock_T>::add_thread(){
+		short int a {0};
 		thread_mx.lock();
-		a = socketfd.size();
-		if(a>0){
-			--a;
-			for(;a>=0;--a){
-				if(thread_list[a]==nullptr){
-					thread_list[a] = new std::thread(execute,a);
-					break;
-				}
-			}
-			if(a>=0){
-				thread_mx.unlock();
-				return;
-			}
-			else{
-				a = socketfd.size();
-				if(max_amount>0){
-					if(a>=max_amount){
-						thread_mx.unlock();
-						return;
-					}
-				}
+		for(;a<max_thread;++a){
+			if(thread_list[a]==nullptr){
+				thread_list[a] = new std::thread(execute,a);
+				break;
 			}
 		}
-		socketfd.push_back(-1);
-		status.push_back(hast_web::BUSY);
-		raw_msg.push_back("");
-		thread_list.push_back(nullptr);
-		thread_list[a] = new std::thread(execute,a);
-		thread_mx.unlock();
-	}
-
-	template<>
-	inline void server_thread<SSL*>::add_thread(){
-		short int a;
-		thread_mx.lock();
-		a = socketfd.size();
-		if(a>0){
-			--a;
-			for(;a>=0;--a){
-				if(thread_list[a]==nullptr){
-					thread_list[a] = new std::thread(execute,a);
-					break;
-				}
-			}
-			if(a>=0){
-				thread_mx.unlock();
-				return;
-			}
-			else{
-				a = socketfd.size();
-				if(max_amount>0){
-					if(a>=max_amount){
-						thread_mx.unlock();
-						return;
-					}
-				}
-			}
-		}
-		socketfd.push_back(nullptr);
-		status.push_back(hast_web::BUSY);
-		raw_msg.push_back("");
-		thread_list.push_back(nullptr);
-		thread_list[a] = new std::thread(execute,a);
 		thread_mx.unlock();
 	}
 };
