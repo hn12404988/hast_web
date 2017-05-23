@@ -1,4 +1,4 @@
-# hast_web
+# hast_web(1.0.0)
 
 Websocket server based on [hast](https://github.com/hn12404988/hast) core. Let it be a fast server, can handle requests in parallel, and can receive large data like files. The cost is **Linux-Only**.
 
