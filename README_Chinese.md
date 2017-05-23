@@ -1,4 +1,4 @@
-# hast_web
+# hast_web(1.0.0)
 
 一個基於[hast](https://github.com/hn12404988/hast)核心的Websocket伺服器，使用C++11編寫，特色為快速而且擁有平行處理的能力，且能接收大型的資料例如檔案，缺點為限定於Linux平台。
 
@@ -29,13 +29,13 @@ g++ --std=c++11 -pthread -lcrypto -lssl .......
 
 * 這專案很容易使用，建議直接看`examples`資料夾即可。
 * 如果你想要知道更多這專案的細部參數設置，請前往這專案的[wiki](https://github.com/hn12404988/hast_web/wiki)頁面。
-* 如果你想知道更多關於[hast](https://github.com/hn12404988/hast)核心，請前往hast的[抽象層介紹影片](https://www.youtube.com/watch?v=G41F7xHC2bs)。
+* 如果你想知道更多關於[hast](https://github.com/hn12404988/hast)核心，請前往hast的[中文介紹頁面](https://github.com/hn12404988/hast/blob/master/README_Chinese.md)。
 
 ## 框架
 
 * 如果你在建立一個Linux伺服器，建議可以參考另一個我的專案叫[dalahast](https://github.com/hn12404988/dalahast)，這是一個完整從Web前端到hast後端的示範框架。
+* [hast](https://github.com/hn12404988/hast)是這個專案的核心專案，端口改支援TCP/IP和unix domain，平行處理設計沒有這專案的「單一socket多次接收」的能力，但特別針對[網路拓樸](https://zh.wikipedia.org/wiki/%E7%BD%91%E7%BB%9C%E6%8B%93%E6%89%91)設計額外功能。
 
 ## 缺陷和建議
 
 這專案仍在開發中，所以有發現任何缺陷或建議，歡迎使用issue功能回報。
-
