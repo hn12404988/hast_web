@@ -179,7 +179,7 @@ namespace hast_web{
 	void socket_server<sock_T>::done(const short int thread_index){
 		/**
 		 * This is here for threads break msg_recv loop accidentally.
-		 * Threads are only allowed to break msg_recv loop by get 'false' from it.
+		 * Threads are only allowed to break msg_recv loop by getting 'false' from it.
 		 **/
 		hast_web::server_thread<sock_T>::status[thread_index] = hast_web::RECYCLE;
 	}
