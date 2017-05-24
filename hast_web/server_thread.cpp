@@ -137,17 +137,13 @@ namespace hast_web{
 	short int server_thread<sock_T>::get_thread(){
 		thread_mx.lock();
 		short int a {0};
-		for(;a<max_thread;++a){
-			if(recv_thread==a){
-				continue;
+		if(recv_thread==-1){
+			for(;a<max_thread;++a){
+				if(status[a]==hast_web::WAIT){
+					break;
+				}
 			}
-			if(status[a]==hast_web::WAIT){
-				break;
-			}
-		}
-		if(a==max_thread){
-			if(status[recv_thread]==hast_web::WAIT){
-				a = recv_thread;
+			if(a<max_thread){
 				status[a] = hast_web::GET;
 			}
 			else{
@@ -155,7 +151,26 @@ namespace hast_web{
 			}
 		}
 		else{
-			status[a] = hast_web::GET;
+			for(;a<max_thread;++a){
+				if(recv_thread==a){
+					continue;
+				}
+				if(status[a]==hast_web::WAIT){
+					break;
+				}
+			}
+			if(a==max_thread){
+				if(status[recv_thread]==hast_web::WAIT){
+					a = recv_thread;
+					status[a] = hast_web::GET;
+				}
+				else{
+					a = -1;
+				}
+			}
+			else{
+				status[a] = hast_web::GET;
+			}
 		}
 		thread_mx.unlock();
 		return a;
