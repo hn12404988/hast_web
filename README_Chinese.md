@@ -1,4 +1,4 @@
-# hast_web(1.0.0)
+# hast_web
 
 一個基於[hast](https://github.com/hn12404988/hast)核心的Websocket伺服器，使用C++11編寫，特色為快速而且擁有平行處理的能力，且能接收大型的資料例如檔案，缺點為限定於Linux平台。
 
