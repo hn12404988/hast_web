@@ -39,19 +39,45 @@ namespace hast_web{
 
 	template<class sock_T>
 	void server_thread<sock_T>::destruct(){
-		short int a {0};
-		delete [] status;
-		delete [] raw_msg;
-		delete [] socketfd;
-		for(;a<max_thread;++a){
-			if(thread_list[a]!=nullptr){
-				if(thread_list[a]->joinable()==true){
-					thread_list[a]->join();
-					delete thread_list[a];
+		if(thread_list!=nullptr){
+			short int a;
+			for(;;){
+				for(a=0;a<max_thread;++a){
+					if(thread_list[a]!=nullptr){
+						if(thread_list[a]->joinable()==true){
+							thread_list[a]->join();
+							delete thread_list[a];
+							thread_list[a] = nullptr;
+						}
+						else{
+							//Something Wrong
+						}
+					}
+				}
+				for(a=0;a<max_thread;++a){
+					if(thread_list[a]!=nullptr){
+						break;
+					}
+				}
+				if(a==max_thread){
+					break;
 				}
 			}
+			delete [] thread_list;
+			thread_list = nullptr;
 		}
-		delete [] thread_list;
+		if(status!=nullptr){
+			delete [] status;
+			status = nullptr;
+		}
+		if(raw_msg!=nullptr){
+			delete [] raw_msg;
+			raw_msg = nullptr;
+		}
+		if(check_entry!=nullptr){
+			delete [] check_entry;
+			check_entry = nullptr;
+		}
 	}
 
 	template<>
@@ -89,9 +115,11 @@ namespace hast_web{
 		for(;it!=it_end;++it){
 			if(it->second!=nullptr){
 				SSL_free(it->second);
+				it->second = nullptr;
 			}
 		}
 		delete ssl_map;
+		ssl_map = nullptr;
 		if(ctx!=nullptr){
 			SSL_CTX_free(ctx);
 		}
