@@ -74,10 +74,6 @@ namespace hast_web{
 			delete [] raw_msg;
 			raw_msg = nullptr;
 		}
-		if(check_entry!=nullptr){
-			delete [] check_entry;
-			check_entry = nullptr;
-		}
 	}
 
 	template<>
@@ -123,9 +119,15 @@ namespace hast_web{
 		if(ctx!=nullptr){
 			SSL_CTX_free(ctx);
 		}
-		ERR_free_strings();
-		EVP_cleanup();
 		destruct();
+		//CONF_modules_unload(1);
+		//CONF_modules_free();
+		//ENGINE_cleanup();
+		sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
+		EVP_cleanup();
+		CRYPTO_cleanup_all_ex_data();
+		ERR_remove_state(0);
+		ERR_free_strings();
 	}
 
 	template<>
