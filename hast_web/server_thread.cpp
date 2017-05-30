@@ -118,6 +118,7 @@ namespace hast_web{
 		ssl_map = nullptr;
 		if(ctx!=nullptr){
 			SSL_CTX_free(ctx);
+			ctx = nullptr;
 		}
 		destruct();
 		//CONF_modules_unload(1);

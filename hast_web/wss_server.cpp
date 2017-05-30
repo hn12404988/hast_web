@@ -124,11 +124,11 @@ void wss_server::start_accept(){
 				}
 				reset_accept(new_socket,ssl);
 				ssl = nullptr;
+				(*ssl_map)[new_socket] = nullptr;
 				continue;
 			}
 			else{
 				(*ssl_map)[new_socket] = ssl;
-				ssl = nullptr;
 			}
 			ev.data.fd = new_socket;
 			if(epoll_ctl(epollfd, EPOLL_CTL_ADD, new_socket,&ev)==-1){
@@ -137,6 +137,7 @@ void wss_server::start_accept(){
 				(*ssl_map)[new_socket] = nullptr;
 				continue;
 			}
+			ssl = nullptr;
 			if(recv_thread==-1){
 				add_thread();
 			}
