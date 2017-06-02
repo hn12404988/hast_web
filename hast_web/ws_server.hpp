@@ -2,7 +2,9 @@
 #define hast_web_ws_server_hpp
 #include <hast_web/socket_server.hpp>
 
-class ws_server : public hast_web::socket_server<int>{
+class ws_server : public hast_web::socket_server{
+protected:
+	inline bool write(int socket_index, std::string &msg);
 public:
 	std::function<bool(const int socket_index, std::string &user, std::string &password)> on_open {nullptr};
 	std::function<bool(const int socket_index, std::string &user, std::string &password)> on_connect {nullptr};

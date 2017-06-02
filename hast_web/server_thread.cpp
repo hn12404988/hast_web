@@ -1,46 +1,8 @@
 namespace hast_web{
-	template<>
-	server_thread<int>::server_thread(){}
-
-	template<>
-	server_thread<SSL*>::server_thread(){
-		ssl_map = new std::map<int,SSL*>;
-	}
-
-	template<>
-	void server_thread<int>::init(){
+	server_thread::server_thread(){}
+	server_thread::~server_thread(){
 		short int a;
-		status = new char [max_thread];
-		raw_msg = new std::string [max_thread];
-		socketfd = new int [max_thread];
-		thread_list = new std::thread* [max_thread];
-		for(a=0;a<max_thread;++a){
-			status[a] = hast_web::BUSY;
-			thread_list[a] = nullptr;
-			raw_msg[a] = "";
-			socketfd[a] = -1;
-		}
-	}
-
-	template<>
-	void server_thread<SSL*>::init(){
-		short int a;
-		status = new char [max_thread];
-		raw_msg = new std::string [max_thread];
-		socketfd = new SSL* [max_thread];
-		thread_list = new std::thread* [max_thread];
-		for(a=0;a<max_thread;++a){
-			status[a] = hast_web::BUSY;
-			thread_list[a] = nullptr;
-			raw_msg[a] = "";
-			socketfd[a] = nullptr;
-		}
-	}
-
-	template<class sock_T>
-	void server_thread<sock_T>::destruct(){
 		if(thread_list!=nullptr){
-			short int a;
 			for(;;){
 				for(a=0;a<max_thread;++a){
 					if(thread_list[a]!=nullptr){
@@ -74,70 +36,27 @@ namespace hast_web{
 			delete [] raw_msg;
 			raw_msg = nullptr;
 		}
+		if(socketfd!=nullptr){
+			delete [] socketfd;
+			socketfd = nullptr;
+		}
 	}
 
-	template<>
-	bool server_thread<SSL*>::wss_init(const char* crt, const char* key){
-		SSL_load_error_strings();	
-		OpenSSL_add_ssl_algorithms();
-		SSL_library_init();
-		const SSL_METHOD *method;
-		method = SSLv23_server_method();
-		ctx = SSL_CTX_new(method);
-		if (!ctx) {
-			perror("Unable to create SSL context");
-			ERR_print_errors_fp(stderr);
-			return false;
+	void server_thread::init(){
+		short int a;
+		status = new char [max_thread];
+		raw_msg = new std::string [max_thread];
+		socketfd = new int [max_thread];
+		thread_list = new std::thread* [max_thread];
+		for(a=0;a<max_thread;++a){
+			status[a] = hast_web::BUSY;
+			thread_list[a] = nullptr;
+			raw_msg[a] = "";
+			socketfd[a] = -1;
 		}
-		//SSL_CTX_set_ecdh_auto(ctx, 1); This is removed in newer openssl.
-		/* Set the key and cert */
-		if (SSL_CTX_use_certificate_file(ctx, crt, SSL_FILETYPE_PEM) < 0) {
-			ERR_print_errors_fp(stderr);
-			return false;
-		}
-		if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) < 0 ) {
-			ERR_print_errors_fp(stderr);
-			return false;
-		}
-		return true;
 	}
 
-	template<>
-	server_thread<SSL*>::~server_thread(){
-		std::map<int,SSL*>::iterator it;
-		std::map<int,SSL*>::iterator it_end;
-		it = ssl_map->begin();
-		it_end = ssl_map->end();
-		for(;it!=it_end;++it){
-			if(it->second!=nullptr){
-				SSL_free(it->second);
-				it->second = nullptr;
-			}
-		}
-		delete ssl_map;
-		ssl_map = nullptr;
-		if(ctx!=nullptr){
-			SSL_CTX_free(ctx);
-			ctx = nullptr;
-		}
-		destruct();
-		//CONF_modules_unload(1);
-		//CONF_modules_free();
-		//ENGINE_cleanup();
-		sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
-		EVP_cleanup();
-		CRYPTO_cleanup_all_ex_data();
-		ERR_remove_state(0);
-		ERR_free_strings();
-	}
-
-	template<>
-	server_thread<int>::~server_thread(){
-		destruct();
-	}
-
-	template<class sock_T>
-	inline void server_thread<sock_T>::resize(short int amount){
+	inline void server_thread::resize(short int amount){
 		short int a {0};
 		for(;a<max_thread;++a){
 			if(recv_thread==a){
@@ -156,6 +75,7 @@ namespace hast_web{
 					delete thread_list[a];
 					thread_list[a] = nullptr;
 					status[a] = hast_web::BUSY;
+					socketfd[a] = -1;
 				}
 				else{
 					//TODO Something Wrong
@@ -164,8 +84,7 @@ namespace hast_web{
 		}
 	}
 
-	template<class sock_T>
-	short int server_thread<sock_T>::get_thread(){
+	short int server_thread::get_thread(){
 		thread_mx.lock();
 		short int a {0};
 		if(recv_thread==-1){
@@ -207,8 +126,7 @@ namespace hast_web{
 		return a;
 	}
 
-	template<class sock_T>
-	short int server_thread<sock_T>::get_thread_no_recv(){
+	short int server_thread::get_thread_no_recv(){
 		thread_mx.lock();
 		short int a {0};
 		for(;a<max_thread;++a){
@@ -229,8 +147,7 @@ namespace hast_web{
 		return a;
 	}
 
-	template<class sock_T>
-	inline void server_thread<sock_T>::add_thread(){
+	inline void server_thread::add_thread(){
 		short int a {0};
 		thread_mx.lock();
 		for(;a<max_thread;++a){

@@ -33,9 +33,9 @@ void on_close(const int socket_index){
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
-bool on_connect(std::string &user, std::string &password){
+bool on_connect(const int socket_index, std::string &user, std::string &password){
 	//A socket requests to connect. Do something here.
-	std::cout << "CONNECT" << std::endl;
+	std::cout << "CONNECT: " << socket_index << std::endl;
 	std::cout << "User: " << user << std::endl;
 	std::cout << "PW: " << password << std::endl;
 	/**
@@ -63,8 +63,8 @@ int main (int argc, char* argv[]){
 	server.on_open = on_open; //Optional
 	server.on_connect = on_connect; //Optional
 	/**
-	 * `3` means this program can use 3 threads at most.
 	 * `8888` means the port that this program is listening.
+	 * [Optional] `3` means this program can use 3 threads at most. (Default is 2)
 	 **/
 	if(server.init("8888",3)==true){
 		server.start_accept();

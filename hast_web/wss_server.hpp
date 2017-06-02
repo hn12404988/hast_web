@@ -1,13 +1,27 @@
 #ifndef hast_web_wss_server_hpp
 #define hast_web_wss_server_hpp
 #include <hast_web/socket_server.hpp>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <map>
 
-class wss_server : public hast_web::socket_server<SSL*>{
+class wss_server : public hast_web::socket_server{
 protected:
+	std::mutex ssl_mx;
+	SSL_CTX *ctx {nullptr};
+	SSL **ssl {nullptr};
+	std::map<int,SSL*> ssl_map;
 	void reset_accept(int socket_index,SSL *ssl = nullptr);
+	void close_socket(int socket) override;
+	inline void recv_epoll() override;
+	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str) override;
+	WebSocketFrameType pop_pending(const short int thread_index) override;
+	inline bool write(int socket_index,std::string &msg);
+	inline bool write(SSL *ssl_ptr,std::string &msg);
 public:
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_open {nullptr};
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_connect {nullptr};
+	~wss_server();
 	void start_accept();
 	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 0);
 	inline void echo_back_msg(const short int thread_index, std::string &msg);

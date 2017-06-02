@@ -42,7 +42,11 @@ void ws_server::start_accept(){
 					continue;
 				}
 			}
-			send(new_socket, msg.c_str(), msg.length(),0);
+			if(write(new_socket,msg)==false){
+				shutdown(new_socket,SHUT_RDWR);
+				close(new_socket);
+				continue;
+			}
 			if(on_open!=nullptr){
 				if(on_open(new_socket,user,password)==false){
 					shutdown(new_socket,SHUT_RDWR);
@@ -67,18 +71,18 @@ inline void ws_server::echo_back_msg(const short int thread_index, std::string &
 	int len {msg.length()+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
-	send_mx.lock();
-	send(socketfd[thread_index], buf, len,0);
-	send_mx.unlock();
+	buf[len] = '\0';
+	msg = buf;
+	write(socketfd[thread_index],msg);
 }
 
 inline void ws_server::echo_back_msg(const short int thread_index, const char* msg){
 	int len {strlen(msg)+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
-	send_mx.lock();
-	send(socketfd[thread_index], buf, len,0);
-	send_mx.unlock();
+	buf[len] = '\0';
+	std::string tmp_str(buf);
+	write(socketfd[thread_index],tmp_str);
 }
 
 inline void ws_server::echo_back_msg(const int socket_index, std::string &msg){
@@ -88,9 +92,9 @@ inline void ws_server::echo_back_msg(const int socket_index, std::string &msg){
 	int len {msg.length()+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
-	send_mx.lock();
-	send(socket_index, buf, len,0);
-	send_mx.unlock();
+	buf[len] = '\0';
+	msg = buf;
+	write(socket_index,msg);
 }
 
 inline void ws_server::echo_back_msg(const int socket_index, const char* msg){
@@ -100,7 +104,36 @@ inline void ws_server::echo_back_msg(const int socket_index, const char* msg){
 	int len {strlen(msg)+1};
 	char buf[len];
 	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
-	send_mx.lock();
-	send(socket_index, buf, len,0);
-	send_mx.unlock();
+	buf[len] = '\0';
+	std::string tmp_msg(buf);
+	write(socket_index,tmp_msg);
 }
+
+inline bool ws_server::write(int socket_index, std::string &msg){
+	int flag,len {msg.length()};
+	const char* i {msg.c_str()};
+	for(;;){
+		flag = send(socket_index , i , len , 0);
+		if(flag==-1){
+			if(errno==EAGAIN || errno==EWOULDBLOCK){
+				continue;
+			}
+			else{
+				close_socket(socket_index);
+				return false;
+			}
+		}
+		else{
+			if(flag==len){
+				break;
+			}
+			else{
+				msg = msg.substr(flag);
+				i = msg.c_str();
+				len = msg.length();
+			}
+		}
+	}
+	return true;
+}
+

@@ -16,9 +16,9 @@ auto execute = [&](const short int thread_index){
 	std::string str;
 	while(server.msg_recv(thread_index)==true){
 		//This section is how a request be processed.
-		//std::cout << "msg: " << server.raw_msg[thread_index] << std::endl;
-		//std::cout << "socketfd: " << server.socketfd[thread_index] << std::endl;
-		//std::cout << "thread: " << thread_index << std::endl;
+		std::cout << "msg: " << server.raw_msg[thread_index] << std::endl;
+		std::cout << "socketfd: " << server.socketfd[thread_index] << std::endl;
+		std::cout << "thread: " << thread_index << std::endl;
 		str = "{\"reply\":\"got it\"}";
 		std::cout << "Reply: " << str << std::endl;
 		server.echo_back_msg(thread_index,str);
@@ -32,7 +32,7 @@ void on_close(const int socket_index){
 	std::cout << "CLOSE: " << socket_index << std::endl;
 }
 
-bool on_connect(std::string &user, std::string &password){
+bool on_connect(SSL *ssl, std::string &user, std::string &password){
 	std::cout << "CONNECT" << std::endl;
 	std::cout << "User: " << user << std::endl;
 	std::cout << "PW: " << password << std::endl;
@@ -57,7 +57,7 @@ int main (int argc, char* argv[]){
 	 * `3` means this program can use 3 threads at most.
 	 * `8888` means the port that this program is listening.
 	 **/
-	if(server.init("/home/tls/server.crt","/home/tls/server.key","8888",3)==true){
+	if(server.init("/home/tls/server_2/server.crt","/home/tls/server_2/server.key","8888",3)==true){
 		server.start_accept();
 	}
 	return 0;

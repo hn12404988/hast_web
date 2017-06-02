@@ -1,7 +1,7 @@
 /**
- * This example mimic a program get base64 of a image from web front-end, and transfer base64 to binary. Finally write binary in a file.
+ * This example mimic a program get base64 string of a image from web front-end, and transfer base64 to binary. Finally write binary into a file.
  * This example show the over-all view about how to receive data partially in hast_web. (Most for large data like file, image...etc)
- * If you have not read another example `wss_server.cpp`, it's better head first to that example, then come back.
+ * If you have not read another example `wss_server.cpp` yet, it's better head first to that example, then come back.
  * More details about class memebers or methods in wiki page of hast_web repository.
  **/
 #include <fstream>
@@ -133,7 +133,7 @@ void on_close(const int socket_index){
 }
 
 bool on_open(SSL* ssl, std::string &user, std::string &password){
-	std::cout << "OPEN: " << server.get_socket_fd(ssl) << std::endl;
+	std::cout << "OPEN: " << SSL_get_fd(ssl) << std::endl;
 	std::cout << "USER: " << user << std::endl;
 	std::cout << "PASSWORD: " << password << std::endl;
 	server.echo_back_msg(ssl,"Welcome!!");
@@ -144,7 +144,7 @@ int main (int argc, char* argv[]){
 	server.execute = execute; 
 	server.on_close = on_close;
 	server.on_open = on_open;
-	if(server.init("/home/tls/server.crt","/home/tls/server.key","8888",3)==true){
+	if(server.init("/home/tls/server_2/server.crt","/home/tls/server_2/server.key","8888",3)==true){
 		server.start_accept();
 	}
 	return 0;

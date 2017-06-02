@@ -8,12 +8,10 @@
 #include <istream>
 #include <vector>
 
-#include <openssl/evp.h>
-#include <openssl/buffer.h>
 #include <openssl/sha.h>
+#include <openssl/buffer.h>
 #include <openssl/md5.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include <openssl/evp.h>
 
 class Crypto {
 	const static size_t buffer_size=131072;

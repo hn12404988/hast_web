@@ -4,7 +4,7 @@
 </head>
 <body>
 	<script>
-	 var server_url = "ws://172.17.0.2:8888/user&password";
+	 var server_url = "wss://172.18.0.3:8888/user&password";
 	 var ws = new WebSocket(server_url);
 	 function check(ws){
 		 if(ws.readyState==1){
@@ -26,6 +26,24 @@
 			 ws.send(msg);
 		 }
 	 }
+
+	 function file_reader(img,file){
+		 var reader  = new FileReader(),
+			 content;
+		 reader.onloadend = function () {
+			 img.src = reader.result;
+			 content = img.src.split(',')[1];
+			 ws.send(content);
+		 }
+		 reader.readAsDataURL(file);
+	 }
+	 
+	 function image_send(){
+		 var img = document.getElementById("image"),
+			 show = document.getElementById("show_img");
+		 file_reader(show,img.files[0]);
+	 }
+	 
 	 ws.addEventListener("message",function(event){
 		 console.log(event.data);
 	 },false);
@@ -37,5 +55,9 @@
 	 },false);
 	</script>
 	<input type="text" id="msg">
-	<button value="Send" onclick="send(document.getElementById('msg').value)"></button>
+	<button onclick="send(document.getElementById('msg').value)">Text Send</button>
+	<br>
+	<input type="file" id="image">
+	<button onclick="image_send()">Image Send</button>
+	<image id="show_img"></image>
 </body>
