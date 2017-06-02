@@ -265,6 +265,10 @@ inline void wss_server::echo_back_msg(SSL *ssl_ptr, const char* msg){
 	write(ssl_ptr,tmp_msg);
 }
 
+void wss_server::close_socket(const short int thread_index){
+	close_socket(socketfd[thread_index]);
+}
+
 void wss_server::close_socket(int socket){
 	ssl_mx.lock();
 	socket_server::close_socket(socket);

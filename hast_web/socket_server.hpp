@@ -98,7 +98,7 @@ namespace hast_web{
 		 * RETURN DONE_TEXT_CONTIN
 		 **/
 		WebSocketFrameType more_recv(const short int thread_index);
-		void close_socket(const short int thread_index);
+		virtual void close_socket(const short int thread_index);
 		void done(const short int thread_index);
 	};
 };

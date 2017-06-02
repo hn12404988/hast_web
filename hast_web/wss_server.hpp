@@ -24,6 +24,7 @@ public:
 	~wss_server();
 	void start_accept();
 	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 0);
+	void close_socket(const short int thread_index) override;
 	inline void echo_back_msg(const short int thread_index, std::string &msg);
 	inline void echo_back_msg(const short int thread_index, const char *msg);
 	inline void echo_back_msg(SSL *ssl, std::string &msg);
