@@ -162,11 +162,11 @@ namespace hast_web{
 			}
 			break;
 		}
+		freeaddrinfo(res);
+		res = nullptr;
 		if(p==nullptr){
-			freeaddrinfo(res); 
 			return false;
 		}
-		freeaddrinfo(res); 
 		if(listen(host_socket,listen_pending)==0){
 			return true;
 		}
