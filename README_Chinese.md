@@ -22,6 +22,9 @@ apt-get install libssl-dev
 * 把`hast_web`資料夾複製到系統裡的include資料夾
 * 這專案使用到`std::thread`, `crypto.h`和`ssl.h`，所以編譯指令可能需包含以下三個套件：
 ```
+# For ws server
+g++ --std=c++11 -pthread -lcrypto .......
+# For wss server
 g++ --std=c++11 -pthread -lcrypto -lssl .......
 ```
 

@@ -25,6 +25,9 @@ apt-get install libssl-dev
 * Usage of the library and other details please refer to `examples` folder in this moment.
 * This project use `std::thread` , `crypto.h` and `ssl.h`, so compilation command can be:
 ```
+# For ws server
+g++ --std=c++11 -pthread -lcrypto .......
+# For wss server
 g++ --std=c++11 -pthread -lcrypto -lssl .......
 ```
 
