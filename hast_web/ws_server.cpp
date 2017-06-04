@@ -42,7 +42,7 @@ void ws_server::start_accept(){
 					continue;
 				}
 			}
-			if(write(new_socket,msg)==false){
+			if(write(new_socket,&msg[0],msg.length())==false){
 				shutdown(new_socket,SHUT_RDWR);
 				close(new_socket);
 				continue;
@@ -68,52 +68,71 @@ void ws_server::start_accept(){
 }
 
 inline void ws_server::echo_back_msg(const short int thread_index, std::string &msg){
-	int len {msg.length()+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
-	buf[len] = '\0';
-	msg = buf;
-	write(socketfd[thread_index],msg);
+	std::size_t len {msg.length()};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME,msg.c_str(),len,buf,len+10);
+	write(socketfd[thread_index],buf,len);
 }
 
 inline void ws_server::echo_back_msg(const short int thread_index, const char* msg){
-	int len {strlen(msg)+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
-	buf[len] = '\0';
-	std::string tmp_str(buf);
-	write(socketfd[thread_index],tmp_str);
+	std::size_t len {strlen(msg)};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME, msg, len,buf,len+10);
+	write(socketfd[thread_index],buf,len);
+}
+
+inline void ws_server::echo_back_blob(const short int thread_index, std::vector<char> &blob){
+	if(blob[0]!=(char)BINARY_FRAME){
+		std::size_t len {blob.size()};
+		char buf[len+10];
+		len = makeFrame(BINARY_FRAME, &blob[0], len,buf,len+10);
+		write(socketfd[thread_index],buf,len);
+	}
+	else{
+		write(socketfd[thread_index],&blob[0],blob.size());
+	}
 }
 
 inline void ws_server::echo_back_msg(const int socket_index, std::string &msg){
 	if(socket_index<0){
 		return;
 	}
-	int len {msg.length()+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
-	buf[len] = '\0';
-	msg = buf;
-	write(socket_index,msg);
+	std::size_t len {msg.length()};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME,msg.c_str(),len,buf,len+10);
+	write(socket_index,buf,len);
 }
 
 inline void ws_server::echo_back_msg(const int socket_index, const char* msg){
 	if(socket_index<0){
 		return;
 	}
-	int len {strlen(msg)+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
-	buf[len] = '\0';
-	std::string tmp_msg(buf);
-	write(socket_index,tmp_msg);
+	int len {strlen(msg)};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME, msg, len,buf,len+10);
+	write(socket_index,buf,len);
 }
 
-inline bool ws_server::write(int socket_index, std::string &msg){
-	int flag,len {msg.length()};
-	const char* i {msg.c_str()};
+inline void ws_server::echo_back_blob(const int socket_index, std::vector<char> &blob){
+	if(socket_index<0){
+		return;
+	}
+	if(blob[0]!=(char)BINARY_FRAME){
+		std::size_t len {blob.size()};
+		char buf[len+10];
+		len = makeFrame(BINARY_FRAME, &blob[0], len,buf,len+10);
+		write(socket_index,buf,len);
+	}
+	else{
+		write(socket_index,&blob[0],blob.size());
+	}
+}
+
+inline bool ws_server::write(int socket_index, char cmsg[], std::size_t len){
+	std::size_t init {0};
+	int flag;
 	for(;;){
-		flag = send(socket_index , i , len , 0);
+		flag = send(socket_index , &cmsg[init] , len , 0);
 		if(flag==-1){
 			if(errno==EAGAIN || errno==EWOULDBLOCK){
 				continue;
@@ -128,9 +147,8 @@ inline bool ws_server::write(int socket_index, std::string &msg){
 				break;
 			}
 			else{
-				msg = msg.substr(flag);
-				i = msg.c_str();
-				len = msg.length();
+				init += flag;
+				len -= flag;
 			}
 		}
 	}

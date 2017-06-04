@@ -150,7 +150,7 @@ void wss_server::start_accept(){
 					continue;
 				}
 			}
-			write(ssl_ptr,msg);
+			write(ssl_ptr,&msg[0],msg.length());
 			if(on_open!=nullptr){
 				if(on_open(ssl_ptr,user,password)==false){
 					reset_accept(new_socket,ssl_ptr);
@@ -222,47 +222,66 @@ bool wss_server::init(const char* crt, const char* key, hast::tcp_socket::port p
 }
 
 inline void wss_server::echo_back_msg(const short int thread_index, std::string &msg){
-	int len {msg.length()+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
-	buf[len] = '\0';
-	msg = buf;
-	write(socketfd[thread_index],msg);
+	std::size_t len {msg.length()};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME,msg.c_str(),len,buf,len+10);
+	write(ssl[thread_index],buf,len);
 }
 
 inline void wss_server::echo_back_msg(const short int thread_index, const char* msg){
-	int len {strlen(msg)+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
-	buf[len] = '\0';
-	std::string tmp_msg(buf);
-	write(socketfd[thread_index],tmp_msg);
+	std::size_t len {strlen(msg)};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME, msg, len,buf,len+10);
+	write(ssl[thread_index],buf,len);
+}
+
+inline void wss_server::echo_back_blob(const short int thread_index,std::vector<char> &blob){
+	if(blob[0]!=(char)BINARY_FRAME){
+		std::size_t len {blob.size()};
+		char buf[len+10];
+		len = makeFrame(BINARY_FRAME, &blob[0], len,buf,len+10);
+		write(ssl[thread_index],buf,len);
+	}
+	else{
+		write(ssl[thread_index],&blob[0],blob.size());
+	}
+}
+
+inline void wss_server::echo_back_blob(SSL *ssl_ptr, std::vector<char> &blob){
+	if(ssl_ptr==nullptr){
+		return;
+	}
+	if(blob[0]!=BINARY_FRAME){
+		std::size_t len {blob.size()};
+		char buf[len+10];
+		len = makeFrame(BINARY_FRAME, &blob[0], len,buf,len+10);
+		write(ssl_ptr,buf,len);
+	}
+	else{
+		write(ssl_ptr,&blob[0],blob.size());
+	}
 }
 
 inline void wss_server::echo_back_msg(SSL *ssl_ptr, std::string &msg){
 	//Use this method only in on_open
-	if(ssl==nullptr){
+	if(ssl_ptr==nullptr){
 		return;
 	}
-	int len {msg.length()+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME,msg.c_str(),len-1,buf,len);
-	buf[len] = '\0';
-	msg = buf;
-	write(ssl_ptr,msg);
+	std::size_t len {msg.length()};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME,msg.c_str(),len,buf,len+10);
+	write(ssl_ptr,buf,len);
 }
 
 inline void wss_server::echo_back_msg(SSL *ssl_ptr, const char* msg){
 	//Use this method only in on_open
-	if(ssl==nullptr){
+	if(ssl_ptr==nullptr){
 		return;
 	}
-	int len {strlen(msg)+1};
-	char buf[len];
-	len = makeFrame(TEXT_FRAME, msg, len-1,buf,len);
-	buf[len] = '\0';
-	std::string tmp_msg(buf);
-	write(ssl_ptr,tmp_msg);
+	std::size_t len {strlen(msg)};
+	char buf[len+10];
+	len = makeFrame(TEXT_FRAME, msg, len,buf,len+10);
+	write(ssl_ptr,buf,len);
 }
 
 void wss_server::close_socket(const short int thread_index){
@@ -447,29 +466,27 @@ WebSocketFrameType wss_server::pop_pending(const short int thread_index){
 	}
 }
 
-inline bool wss_server::write(SSL *ssl_ptr,std::string &msg){
+inline bool wss_server::write(SSL *ssl_ptr,char cmsg[], std::size_t len){
 	if(ssl_ptr==nullptr){
 		return false;
 	}
-	int fd;
-	fd = SSL_get_fd(ssl_ptr);
+	int fd {SSL_get_fd(ssl_ptr)};
 	if(fd==-1){
 		return false;
 	}
-	int len {msg.length()},flag;
-	const char* cmsg {msg.c_str()};
+	std::size_t init {0};
+	int flag;
 	ssl_mx.lock();
 	for(;;){
-		flag = SSL_write(ssl_ptr, cmsg, len);
+		flag = SSL_write(ssl_ptr, &cmsg[init], len);
 		if(flag>0){
 			if(flag==len){
 				ssl_mx.unlock();
 				return true;
 			}
 			else{
-				msg = msg.substr(flag);
-				cmsg = msg.c_str();
-				len = msg.length();
+				init += flag;
+				len -= flag;
 			}
 		}
 		else if(flag==0){
@@ -485,49 +502,6 @@ inline bool wss_server::write(SSL *ssl_ptr,std::string &msg){
 			else{
 				ssl_mx.unlock();
 				close_socket(fd);
-				return false;
-			}
-		}
-	}
-}
-
-inline bool wss_server::write(int socket_index,std::string &msg){
-	if(socket_index<0){
-		return false;
-	}
-	SSL *ssl_ptr {ssl_map[socket_index]};
-	if(ssl_ptr==nullptr){
-		return false;
-	}
-	int len {msg.length()},flag;
-	const char* cmsg {msg.c_str()};
-	ssl_mx.lock();
-	for(;;){
-		flag = SSL_write(ssl_ptr, cmsg, len);
-		if(flag>0){
-			if(flag==len){
-				ssl_mx.unlock();
-				return true;
-			}
-			else{
-				msg = msg.substr(flag);
-				cmsg = msg.c_str();
-				len = msg.length();
-			}
-		}
-		else if(flag==0){
-			ssl_mx.unlock();
-			close_socket(socket_index);
-			return false;
-		}
-		else{
-			flag = SSL_get_error(ssl_ptr,flag);
-			if(flag==SSL_ERROR_WANT_READ || flag==SSL_ERROR_WANT_WRITE){
-				continue;
-			}
-			else{
-				ssl_mx.unlock();
-				close_socket(socket_index);
 				return false;
 			}
 		}

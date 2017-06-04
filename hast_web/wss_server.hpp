@@ -16,8 +16,7 @@ protected:
 	inline void recv_epoll() override;
 	bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str) override;
 	WebSocketFrameType pop_pending(const short int thread_index) override;
-	inline bool write(int socket_index,std::string &msg);
-	inline bool write(SSL *ssl_ptr,std::string &msg);
+	inline bool write(SSL *ssl_ptr,char cmsg[], std::size_t len);
 public:
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_open {nullptr};
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_connect {nullptr};
@@ -27,8 +26,10 @@ public:
 	void close_socket(const short int thread_index) override;
 	inline void echo_back_msg(const short int thread_index, std::string &msg);
 	inline void echo_back_msg(const short int thread_index, const char *msg);
+	inline void echo_back_blob(const short int thread_index, std::vector<char> &blob);
 	inline void echo_back_msg(SSL *ssl, std::string &msg);
 	inline void echo_back_msg(SSL *ssl, const char *msg);
+	inline void echo_back_blob(SSL *ssl, std::vector<char> &blob);
 };
 
 #include <hast_web/wss_server.cpp>

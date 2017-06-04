@@ -3,8 +3,10 @@
 #include <hast/tcp_config.hpp>
 #include <hast_web/crypto.hpp>
 #include <hast_web/server_thread.hpp>
-#include <sys/poll.h>
-#include <cstring>
+#include <fstream>   //For read file to blob
+#include <assert.h>  // For read file
+#include <sys/poll.h>// For poll()
+#include <cstring>   //errno
 #include <list>
 
 #define MAX_EVENTS 10
@@ -43,9 +45,10 @@ namespace hast_web{
 		socklen_t client_addr_size;
 		int epollfd;
 		bool got_it {true};
-		const int listen_pending{50};
-		const int transport_size{100};
-		const int resize_while_loop{20};
+		const short int listen_pending{50};
+		const short int transport_size{100};
+		const short int resize_while_loop{20};
+		std::size_t file_max {5242880}; //5MiB
 		struct epoll_event ev,ev_tmp, events[MAX_EVENTS];
 		int host_socket {0};
 		std::list<std::string> pending_msg;
@@ -74,14 +77,17 @@ namespace hast_web{
 		WebSocketFrameType more_data(const short int thread_index, short int &count);
 		virtual bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 		virtual inline void recv_epoll();
-		WebSocketFrameType getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* resize_length);
-		int makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_len, unsigned char* buffer, int buffer_len);
-		int makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_len, char* buffer, int buffer_len);
+		WebSocketFrameType getFrame(unsigned char* in_buffer, std::size_t in_length, unsigned char* out_buffer, std::size_t out_size, std::size_t* resize_length);
+		std::size_t makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, std::size_t msg_len, unsigned char* buffer, std::size_t buffer_len);
+		std::size_t makeFrame(WebSocketFrameType frame_type, const char* msg, std::size_t msg_len, char* buffer, std::size_t buffer_len);
 		virtual void close_socket(int socket);
 	public:
 		socket_server();
 		~socket_server();
 		std::function<void(const int)> on_close {nullptr};
+		void file_max_mb(std::size_t  max); //Mib
+		short int get_blob_frame(std::vector<char> &blob, std::size_t size);
+		bool file_to_blob(std::string &file_name,std::vector<char> &blob, short int unsigned extra = 0);
 		bool init(hast::tcp_socket::port port, short int unsigned max = 2);
 		bool msg_recv(const short int thread_index);
 		/**

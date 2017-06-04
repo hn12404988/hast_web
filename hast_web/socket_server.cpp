@@ -50,11 +50,11 @@ namespace hast_web{
 
 	void socket_server::upgrade(std::string &headers,std::string &user,std::string &password){
 		std::string key,value;
-		size_t msg_len {headers.length()};
+		std::size_t msg_len {headers.length()};
 		int a,b;
 		user.clear();
 		password.clear();
-		for(size_t i=0;i<msg_len;++i){
+		for(std::size_t i=0;i<msg_len;++i){
 			if(headers[i]=='\n'){
 				if(i+1==msg_len){
 					break;
@@ -113,6 +113,66 @@ namespace hast_web{
 		headers.clear();
 	}
 
+	void socket_server::file_max_mb(std::size_t max){
+		file_max = max*1048576;
+	}
+	
+	short int socket_server::get_blob_frame(std::vector<char> &blob, std::size_t size){
+		if(size>file_max){
+			return 0;
+		}
+		if(size<=125){
+			blob.resize(size+2);
+			blob[0] = (char)BINARY_FRAME;
+			blob[1] = size;
+			return 2;
+		}
+		else if(size<=65535){
+			blob.resize(4+size);
+			blob[0] = (char)BINARY_FRAME;
+			blob[1] = 126; //16 bit length follows
+			blob[2] = (size >> 8) & 0xFF; // leftmost first
+			blob[3] = size & 0xFF;
+			return 4;
+		}
+		else{// size>2^16-1
+			blob.resize(10+size);
+			blob[0] = (char)BINARY_FRAME;
+			blob[1] = 127; //64 bit length follows
+			blob[2] = 0;
+			blob[3] = 0;
+			blob[4] = 0;
+			blob[5] = 0;
+			blob[6] = ((size >> 8*3) & 0xFF);
+			blob[7] = ((size >> 8*2) & 0xFF);
+			blob[8] = ((size >> 8*1) & 0xFF);
+			blob[9] = ((size >> 8*0) & 0xFF);
+			return 10;
+		}
+	}
+
+	bool socket_server::file_to_blob(std::string &file_name,std::vector<char> &blob, short int unsigned extra){
+		std::ifstream file(file_name.c_str(),std::ios::binary);
+		short int prefix;
+		assert(file.is_open());
+		if (!file.eof() && !file.fail()){
+			file.seekg(0, std::ios_base::end);
+			std::streampos fileSize = file.tellg();
+			fileSize += extra;
+			if(fileSize>file_max){
+				return false;
+			}
+			prefix = get_blob_frame(blob,fileSize);
+			fileSize -= extra;
+			file.seekg(0, std::ios_base::beg);
+			file.read(&blob[prefix], fileSize);
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	
 	bool socket_server::init(hast::tcp_socket::port port, short int unsigned max){
 		if(max==0){
 			return false;
@@ -283,7 +343,7 @@ namespace hast_web{
 		}
 		int a;
 		std::string *str {&raw_msg[thread_index]};
-		size_t resize_len;
+		std::size_t resize_len;
 		resize_len = raw_str.length();
 		unsigned char u_msg[resize_len];
 		a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
@@ -655,10 +715,10 @@ namespace hast_web{
 		}
 	}
 
-	int socket_server::makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, int msg_length, unsigned char* buffer, int buffer_size)
+	std::size_t socket_server::makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, std::size_t msg_length, unsigned char* buffer, std::size_t buffer_size)
 	{
-		int pos = 0;
-		int size = msg_length; 
+		short int pos = 0;
+		std::size_t size = msg_length; 
 		buffer[pos++] = (unsigned char)frame_type; // text frame
 
 		if(size <= 125) {
@@ -689,11 +749,11 @@ namespace hast_web{
 		return (size+pos);
 	}
 
-	int socket_server::makeFrame(WebSocketFrameType frame_type, const char* msg, int msg_length, char* buffer, int buffer_size)
+	std::size_t socket_server::makeFrame(WebSocketFrameType frame_type, const char* msg, std::size_t msg_length, char* buffer, std::size_t buffer_size)
 	{
-		int pos = 0;
-		int size = msg_length; 
-		buffer[pos++] = (unsigned char)frame_type; // text frame
+		short int pos = 0;
+		std::size_t size = msg_length; 
+		buffer[pos++] = (char)frame_type; // text frame
 
 		if(size <= 125) {
 			buffer[pos++] = size;
@@ -723,7 +783,7 @@ namespace hast_web{
 		return (size+pos);
 	}
 
-	WebSocketFrameType socket_server::getFrame(unsigned char* in_buffer, size_t in_length, unsigned char* out_buffer, size_t out_size, size_t* resize_length)
+	WebSocketFrameType socket_server::getFrame(unsigned char* in_buffer, std::size_t in_length, unsigned char* out_buffer, std::size_t out_size, std::size_t* resize_length)
 	{
 		//printf("getTextFrame()\n");
 		if(in_length < 3) return ERROR_FRAME;
@@ -734,7 +794,7 @@ namespace hast_web{
 
 		// *** message decoding 
 
-		size_t payload_length = 0;
+		std::size_t payload_length = 0;
 		short int pos = 2;
 		short int length_field = in_buffer[1] & (~0x80);
 		unsigned int mask = 0;
@@ -768,7 +828,7 @@ namespace hast_web{
 
 			// unmask data:
 			unsigned char* c = in_buffer+pos;
-			for(size_t i=0; i<payload_length; i++) {
+			for(std::size_t i=0; i<payload_length; i++) {
 				c[i] = c[i] ^ ((unsigned char*)(&mask))[i%4];
 			}
 		}
