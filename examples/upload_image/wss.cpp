@@ -83,7 +83,7 @@ auto execute = [&](const short int index){
 		if(type==RECYCLE_THREAD){
 			break;
 		}
-		name = "test.png";
+		name = "test.jpg";
 		error = false;
 		// Open a file, and write data append on the last every time.
 		ofs.open (name.c_str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
@@ -144,7 +144,7 @@ int main (int argc, char* argv[]){
 	server.execute = execute; 
 	server.on_close = on_close;
 	server.on_open = on_open;
-	if(server.init("/home/tls/server_2/server.crt","/home/tls/server_2/server.key","8888",3)==true){
+	if(server.init("/home/tls/server_2/server.crt","/home/tls/server_2/server.key","8888")==true){
 		server.start_accept();
 	}
 	return 0;

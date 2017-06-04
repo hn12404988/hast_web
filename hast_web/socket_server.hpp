@@ -9,6 +9,7 @@
 #include <cstring>   //errno
 #include <list>
 
+
 #define MAX_EVENTS 10
 enum WebSocketFrameType {
 	ERROR_FRAME=0xFF00,

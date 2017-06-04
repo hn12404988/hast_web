@@ -1,0 +1,48 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8" >
+	<script>
+	 var server_url = "ws://172.18.0.3:8888/user&password";
+	 var ws = new WebSocket(server_url);
+	 ws.binaryType = 'blob';
+	 function check(ws){
+		 if(ws.readyState==1){
+			 return true;
+		 }
+		 else if(ws.readyState==0){
+			 return false;
+		 }
+		 else if(ws.readyState>1){
+			 ws = new WebSocket(server_url);
+			 return false;
+		 }
+	 }
+	 
+	 function get(){
+		 if(check(ws)==false){
+			 console.log("WS check() false");
+		 }
+		 else{
+			 ws.send("get");
+		 }
+	 }
+	 
+	 ws.addEventListener("message",function(event){
+		 var show = document.getElementById("image");
+		 var urlCreator = window.URL || window.webkitURL;
+		 var imageUrl = urlCreator.createObjectURL(event.data);
+		 show.src = imageUrl;
+	 },false);
+	 ws.addEventListener("open",function(event){
+		 console.log("websocket open");
+	 },false);
+	 ws.addEventListener("error",function(event){
+		 alert("No WebSocket Connection.");
+	 },false);
+	</script>
+</head>
+<body>
+	<button onclick="get()">Get</button>
+	<button onclick="document.getElementById('image').src = ''">Clear</button>
+	<img id="image">
+</body>

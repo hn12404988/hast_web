@@ -1,0 +1,54 @@
+<!doctype html>
+<head>
+	<meta charset="utf-8" >
+</head>
+<body>
+	<script>
+	 var server_url = "wss://172.18.0.3:8888/user&password";
+	 var ws = new WebSocket(server_url);
+	 function check(ws){
+		 if(ws.readyState==1){
+			 return true;
+		 }
+		 else if(ws.readyState==0){
+			 return false;
+		 }
+		 else if(ws.readyState>1){
+			 ws = new WebSocket(server_url);
+			 return false;
+		 }
+	 }
+	 
+	 function file_reader(img,file){
+		 var reader  = new FileReader(),
+			 content;
+		 reader.onloadend = function () {
+			 img.src = reader.result;
+			 content = img.src.split(',')[1];
+			 ws.send(content);
+		 }
+		 reader.readAsDataURL(file);
+	 }
+	 
+	 function upload(){
+		 var img = document.getElementById("image"),
+			 show = document.getElementById("show_img");
+		 file_reader(show,img.files[0]);
+	 }
+	 
+	 ws.addEventListener("message",function(event){
+		 console.log(event.data);
+	 },false);
+	 ws.addEventListener("open",function(event){
+		 console.log("websocket open");
+	 },false);
+	 ws.addEventListener("error",function(event){
+		 alert("No WebSocket Connection.");
+	 },false);
+	</script>
+	<p>Select a JPEG file</p>
+	<input type="file" id="image">
+	<button onclick="upload()">Upload</button>
+	<p>Image will be upload to /examples/upload_image folder, and it will show right here as well.</p>
+	<image id="show_img"></image>
+</body>

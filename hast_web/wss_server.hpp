@@ -22,7 +22,7 @@ public:
 	std::function<bool(SSL *ssl, std::string &user, std::string &password)> on_connect {nullptr};
 	~wss_server();
 	void start_accept();
-	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 0);
+	bool init(const char* crt, const char* key, hast::tcp_socket::port port, short int unsigned max = 2);
 	void close_socket(const short int thread_index) override;
 	inline void echo_back_msg(const short int thread_index, std::string &msg);
 	inline void echo_back_msg(const short int thread_index, const char *msg);
