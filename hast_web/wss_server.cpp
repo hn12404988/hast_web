@@ -441,7 +441,7 @@ WebSocketFrameType wss_server::pop_pending(const short int thread_index){
 		return NO_MESSAGE;
 	}
 	else{
-		bool done;
+		bool done,binary;
 		raw_msg[thread_index].clear();
 		/*
 		  while(raw_msg[thread_index]==""){
@@ -454,8 +454,11 @@ WebSocketFrameType wss_server::pop_pending(const short int thread_index){
 		pending_socket.pop_front();
 		done = pending_done.front();
 		pending_done.pop_front();
-		//Add this line
+		binary = pending_binary.front();
+		pending_binary.pop_front();
+		// [override] Add this line
 		ssl[thread_index] = ssl_map[socketfd[thread_index]];
+		//
 		close_mx.unlock();
 		if(done==true){
 			return DONE_TEXT;

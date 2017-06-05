@@ -302,10 +302,13 @@ namespace hast_web{
 
 	bool socket_server::read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str){
 		int a {socketfd[thread_index]};
+		int total {0};
 		if(a==-1){
+			std::cout << "a fail: " << total << std::endl;
 			return false;
 		}
 		if(single_poll(a,3000)==false){
+			std::cout << "poll fail: " << total << std::endl;
 			return true;
 		}
 		unsigned char new_char[transport_size];
@@ -313,17 +316,21 @@ namespace hast_web{
 		for(;;){
 			len = recv(a, new_char, transport_size,0);
 			if(len>0){
+				total += len;
 				raw_str.append(new_char,len);
 			}
 			else if(len==0){
 				//client close
+				std::cout << "read len fail: " << total << std::endl;
 				return false;
 			}
 			else{
 				if(errno==EAGAIN || errno==EWOULDBLOCK){
+					std::cout << "read len ok: " << total << std::endl;
 					return true;
 				}
 				else{
+					std::cout << "read len fail: " << total << std::endl;
 					return false;
 				}
 			}
@@ -334,79 +341,127 @@ namespace hast_web{
 		std::basic_string<unsigned char> raw_str;
 		if(read_loop(thread_index,raw_str)==false){
 			close_socket(socketfd[thread_index]);
+			std::cout << "more: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
 		else{
 			if(raw_str.length()==0){
+				std::cout << "more: " << __LINE__ << std::endl;
 				return NO_MESSAGE;
 			}
 		}
-		int a;
+		std::cout << "str len: " << raw_str.length() << std::endl;
+		WebSocketFrameType type;
 		std::string *str {&raw_msg[thread_index]};
 		std::size_t resize_len;
 		resize_len = raw_str.length();
 		unsigned char u_msg[resize_len];
-		a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
-		if(a==DONE_TEXT || a==DONE_TEXT_BEHIND || a==CONTIN_TEXT || a==CONTIN_TEXT_BEHIND){
-			str->append(reinterpret_cast<char*>(u_msg));
+		type = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
+		if(type==DONE_TEXT || type==DONE_TEXT_BEHIND || type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND || type==DONE_BINARY || type==DONE_BINARY_BEHIND || type==CONTIN_BINARY || type==CONTIN_BINARY_BEHIND){
+			str->append(reinterpret_cast<char*>(u_msg), resize_len);
 		}
 		else{
 			close_socket(socketfd[thread_index]);
+			std::cout << "more: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
-		if(a==DONE_TEXT_BEHIND || a==CONTIN_TEXT_BEHIND){
-			bool last_is_CONTIN {(a==CONTIN_TEXT_BEHIND)};
-			bool already_done {(a==DONE_TEXT_BEHIND)};
+		if(type==DONE_TEXT_BEHIND || type==CONTIN_TEXT_BEHIND || type==DONE_BINARY_BEHIND || type==CONTIN_BINARY_BEHIND){
+			bool last_is_CONTIN {(type==CONTIN_TEXT_BEHIND || type==CONTIN_BINARY_BEHIND)};
+			bool already_done {(type==DONE_TEXT_BEHIND || type==DONE_BINARY_BEHIND)};
 			for(;;){
 				raw_str = raw_str.substr(resize_len);
 				resize_len = raw_str.length();
-				a = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
-				if(a==DONE_TEXT || a==DONE_TEXT_BEHIND){
+				type = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
+				if(type==DONE_TEXT || type==DONE_TEXT_BEHIND || type==DONE_BINARY || type==DONE_BINARY_BEHIND){
+					
 					already_done = true;
 					if(last_is_CONTIN==true){
-						str->append(reinterpret_cast<char*>(u_msg));
+						str->append(reinterpret_cast<char*>(u_msg), resize_len);
 					}
 					else{
-						str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),true);
+						if(type==DONE_TEXT || type==DONE_TEXT_BEHIND){
+							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),true,false);
+						}
+						else{
+							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),true,true);
+						}
 						++count;
 					}
 					last_is_CONTIN = false;
-					if(a==DONE_TEXT){
+					if(type==DONE_TEXT || type==DONE_BINARY){
 						break;
 					}
 				}
-				else if(a==CONTIN_TEXT || a==CONTIN_TEXT_BEHIND){
-					str->append(reinterpret_cast<char*>(u_msg));
+				else if(type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND || type==CONTIN_BINARY || type==CONTIN_BINARY_BEHIND){
+					if(last_is_CONTIN==true){
+						str->append(reinterpret_cast<char*>(u_msg),resize_len);
+					}
+					else{
+						if(type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND){
+							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),false,false);
+						}
+						else{
+							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),false,true);
+						}
+						++count;
+					}
 					last_is_CONTIN = true;
-					if(a==CONTIN_TEXT){
+					if(type==CONTIN_TEXT || type==CONTIN_BINARY){
 						break;
 					}
 				}
 				else{
 					close_socket(socketfd[thread_index]);
+					std::cout << "more: " << __LINE__ << std::endl;
 					return ERROR_FRAME;
 				}
 			}
 			if(already_done==true){
-				if(a==DONE_TEXT){
-					return DONE_TEXT;
+				if(type==DONE_TEXT || type==DONE_BINARY){
+					std::cout << "more: " << __LINE__ << std::endl;
+					return type;
 				}
-				else{// a==CONTIN_TEXT
+				else if(type==CONTIN_TEXT){
+					std::cout << "more: " << __LINE__ << std::endl;
 					return DONE_TEXT_CONTIN;
+				}
+				else if(type==CONTIN_BINARY){
+					std::cout << "more: " << __LINE__ << std::endl;
+					return DONE_BINARY_CONTIN;
+				}
+				else{
+					close_socket(socketfd[thread_index]);
+					std::cout << "more: " << __LINE__ << std::endl;
+					return ERROR_FRAME;
 				}
 			}
 			else{
-				return CONTIN_TEXT;
+				if(type==CONTIN_TEXT){
+					std::cout << "more: " << __LINE__ << std::endl;
+					return CONTIN_TEXT;
+				}
+				else if(type==CONTIN_BINARY){
+					std::cout << "more: " << __LINE__ << std::endl;
+					return CONTIN_BINARY;
+				}
+				else{
+					close_socket(socketfd[thread_index]);
+					std::cout << "more: " << __LINE__ << std::endl;
+					return ERROR_FRAME;
+				}
 			}
 		}
 		/**
-		 * return a;
+		 * return type;
 		 **/
-		else if(a==CONTIN_TEXT){
-			return CONTIN_TEXT;
+		else if(type==CONTIN_TEXT || type==CONTIN_BINARY){
+			std::cout << "more: " << __LINE__ << std::endl;
+			return type;
 		}
-		else{
-			return DONE_TEXT;
+		else if(type==DONE_TEXT || type==DONE_BINARY){
+			std::cout << "more: " << __LINE__ << std::endl;
+			std::cout << "more len: " << str->length() << std::endl;
+			return type;
 		}
 	}
 
@@ -414,7 +469,15 @@ namespace hast_web{
 		raw_msg[thread_index].clear();
 		//TODO Remove this useless short int.
 		short int useless;
-		return more_data(thread_index,useless);
+		WebSocketFrameType type;
+		type = more_data(thread_index,useless);
+		if(type==DONE_TEXT_CONTIN){
+			type = DONE_TEXT;
+		}
+		else if(type==DONE_BINARY_CONTIN){
+			type = DONE_BINARY;
+		}
+		return type;
 	}
 	
 	inline void socket_server::epoll_on(const short int thread_index){
@@ -433,7 +496,7 @@ namespace hast_web{
 			return NO_MESSAGE;
 		}
 		else{
-			bool done;
+			bool done,binary;
 			raw_msg[thread_index].clear();
 			/*
 			while(raw_msg[thread_index]==""){
@@ -446,84 +509,96 @@ namespace hast_web{
 			pending_socket.pop_front();
 			done = pending_done.front();
 			pending_done.pop_front();
+			binary = pending_binary.front();
+			pending_binary.pop_front();
 			close_mx.unlock();
 			if(done==true){
-				return DONE_TEXT;
+				if(binary==true){
+					return DONE_BINARY;
+				}
+				else{
+					return DONE_TEXT;
+				}
 			}
 			else{
-				return CONTIN_TEXT;
+				if(binary==true){
+					return CONTIN_BINARY;
+				}
+				else{
+					return CONTIN_TEXT;
+				}
 			}
 		}
 	}
 
-	std::string* socket_server::push_pending(int socket_index, char *msg, bool done){
+	std::string* socket_server::push_pending(int socket_index, char *msg, bool done, bool binary){
 		std::string *str {nullptr};
 		close_mx.lock();
 		pending_msg.push_back(msg);
 		str = &(pending_msg.back());
 		pending_socket.push_back(socket_index);
 		pending_done.push_back(done);
+		pending_binary.push_back(binary);
 		close_mx.unlock();
 		return str;
 	}
 
-	short int socket_server::msg_pop_pending(const short int thread_index){
-		int type;
-		short int count {0};
+	WebSocketFrameType socket_server::msg_pop_pending(const short int thread_index, short int &count){
+		WebSocketFrameType type;
+		count = 0;
 		type = pop_pending(thread_index);
 		if(type!=NO_MESSAGE){
-			if(type==CONTIN_TEXT){
+			if(type==CONTIN_TEXT || type==CONTIN_BINARY){
 				for(;;){
 					type = more_data(thread_index,count);
-					if(type==CONTIN_TEXT){
+					if(type==CONTIN_TEXT || type==CONTIN_BINARY){
 						continue;
 					}
 					else{
 						break;
 					}
 				}
-				if(type==DONE_TEXT){
+				if(type==DONE_TEXT || type==DONE_BINARY){
 					epoll_on(thread_index);
-					return 0;
+					return type;
 				}
-				else if(type==DONE_TEXT_CONTIN){
-					return count;
+				else if(type==DONE_TEXT_CONTIN || type==DONE_BINARY_CONTIN){
+					return type;
 				}
 				else{
 					close_socket(socketfd[thread_index]);
-					return -1;
+					return NO_MESSAGE;
 				}
 			}
 			else{
-				return 0;
+				return type;
 			}
 		}
 		else{
-			return -1;
+			return NO_MESSAGE;
 		}
 	}
 	
-	bool socket_server::msg_recv(const short int thread_index){
-		int type;
+	WebSocketFrameType socket_server::msg_recv(const short int thread_index){
+		WebSocketFrameType type;
 		short int a,count {0};
-		count = msg_pop_pending(thread_index);
-		if(count==0){
-			return true;
-		}
-		else if(count>0){
-			/*
-			for(;count>0;--count){
-				//BUG Thread is probably locked in wait_mx.
-				//TODO Make recv_thread can take job from here.
-				a = get_thread_no_recv();
-				if(a==-1){
-					add_thread();
-					continue;
-				}
-				status[a] = hast_web::READ_PREFIX;
+		type = msg_pop_pending(thread_index,count);
+		if(type!=NO_MESSAGE){
+			if(count>0){
+				/*
+				  for(;count>0;--count){
+				  //BUG Thread is probably locked in wait_mx.
+				  //TODO Make recv_thread can take job from here.
+				  a = get_thread_no_recv();
+				  if(a==-1){
+				  add_thread();
+				  continue;
+				  }
+				  status[a] = hast_web::READ_PREFIX;
+				  }
+				*/
 			}
-			*/
-			return true;
+			return type;
 		}
 		for(;;){
 			raw_msg[thread_index].clear();
@@ -543,7 +618,7 @@ namespace hast_web{
 					break;
 				}
 				else if(status[thread_index]==hast_web::RECYCLE){
-					return false;
+					return RECYCLE_THREAD;
 				}
 				else if(recv_thread==-1){
 					if(status[thread_index]==hast_web::WAIT){
@@ -559,36 +634,38 @@ namespace hast_web{
 				continue;
 			}
 			else if(status[thread_index]==hast_web::READ_PREFIX){
-				count = msg_pop_pending(thread_index);
-				if(count==0){
-					status[thread_index] = hast_web::BUSY;
-					return true;
-				}
-				else if(count>0){
-					/*
-					for(;count>0;--count){
-						//BUG Thread is probably locked in wait_mx.
-						//TODO Make recv_thread can take job from here.
-						a = get_thread_no_recv();
-						if(a==-1){
-							add_thread();
-							continue;
-						}
-						status[a] = hast_web::READ_PREFIX;
-					}
-					*/
-					status[thread_index] = hast_web::BUSY;
-					return true;
+				type = msg_pop_pending(thread_index,count);
+				if(type==NO_MESSAGE){
+					continue;
 				}
 				else{
-					continue;
+					if(count>0){
+						/*
+						  for(;count>0;--count){
+						  //BUG Thread is probably locked in wait_mx.
+						  //TODO Make recv_thread can take job from here.
+						  a = get_thread_no_recv();
+						  if(a==-1){
+						  add_thread();
+						  continue;
+						  }
+						  status[a] = hast_web::READ_PREFIX;
+						  }
+						*/
+						status[thread_index] = hast_web::BUSY;
+						return type;
+					}
+					else{
+						status[thread_index] = hast_web::BUSY;
+						return type;
+					}
 				}
 			}
 			got_it = true;
 			count = 0;
 			for(;;){
 				type = more_data(thread_index,count);
-				if(type==CONTIN_TEXT){
+				if(type==CONTIN_TEXT || type==CONTIN_BINARY){
 					continue;
 				}
 				else{
@@ -610,45 +687,35 @@ namespace hast_web{
 					}
 				}
 			}
-			if(type==DONE_TEXT_CONTIN){
-				for(;count>0;--count){
-					a = get_thread();
-					if(a==-1){
-						add_thread();
-						continue;
-					}
-					status[a] = hast_web::READ_PREFIX;
-				}
-			}
-			else if(type==DONE_TEXT){
+			if(type==DONE_TEXT || type==DONE_BINARY){
 				epoll_on(thread_index);
-				for(;count>0;--count){
-					a = get_thread();
-					if(a==-1){
-						add_thread();
-						continue;
-					}
-					status[a] = hast_web::READ_PREFIX;
+			}
+			else{
+				if(type==DONE_TEXT_CONTIN){
+					type = DONE_TEXT;
+				}
+				else{//type==DONE_BINARY_CONTIN
+					type = DONE_BINARY;
 				}
 			}
+			for(;count>0;--count){
+				a = get_thread();
+				if(a==-1){
+					add_thread();
+					continue;
+				}
+				status[a] = hast_web::READ_PREFIX;
+			}
+			return type;
 			status[thread_index] = hast_web::BUSY;
-			return true;
 		}
 	}
 
 	WebSocketFrameType socket_server::partially_recv(const short int thread_index){
-		int type;
+		WebSocketFrameType type;
 		type = pop_pending(thread_index);
 		if(type!=NO_MESSAGE){
-			if(type==DONE_TEXT){
-				return DONE_TEXT;
-			}
-			else if(type==CONTIN_TEXT){
-				return CONTIN_TEXT;
-			}
-			else{
-				close_socket(socketfd[thread_index]);
-			}
+			return type;
 		}
 		for(;;){
 			raw_msg[thread_index].clear();
@@ -689,10 +756,10 @@ namespace hast_web{
 			short int useless;
 			type = more_data(thread_index,useless);
 			if(type==ERROR_FRAME){
+				close_socket(socketfd[thread_index]);
 				continue;
 			}
 			else if(type==NO_MESSAGE){
-				close_socket(socketfd[thread_index]);
 				continue;
 			}
 			else{
@@ -701,16 +768,18 @@ namespace hast_web{
 					continue;
 				}
 			}
-			if(type==DONE_TEXT || type==DONE_TEXT_CONTIN){
-				status[thread_index] = hast_web::BUSY;
+			status[thread_index] = hast_web::BUSY;
+			if(type==DONE_TEXT_CONTIN){
 				return DONE_TEXT;
 			}
-			else if(type==CONTIN_TEXT){
-				status[thread_index] = hast_web::BUSY;
-				return CONTIN_TEXT;
+			else if(type==DONE_BINARY_CONTIN){
+				std::cout << "partial: " << __LINE__ << std::endl;
+				return DONE_BINARY;
 			}
 			else{
-				close_socket(socketfd[thread_index]);
+				std::cout << "partial: " << __LINE__ << std::endl;
+				std::cout << "partial len: " << raw_msg[thread_index].length() << std::endl;
+				return type;
 			}
 		}
 	}
@@ -786,7 +855,10 @@ namespace hast_web{
 	WebSocketFrameType socket_server::getFrame(unsigned char* in_buffer, std::size_t in_length, unsigned char* out_buffer, std::size_t out_size, std::size_t* resize_length)
 	{
 		//printf("getTextFrame()\n");
-		if(in_length < 3) return ERROR_FRAME;
+		if(in_length < 3){
+			std::cout << "get: " << __LINE__ << std::endl;
+			return ERROR_FRAME;
+		}
 
 		unsigned char msg_opcode = in_buffer[0] & 0x0F;
 		unsigned char msg_fin = (in_buffer[0] >> 7) & 0x01;
@@ -818,6 +890,7 @@ namespace hast_web{
 		}
 		//printf("PAYLOAD_LEN: %08x\n", payload_length);
 		if(in_length < payload_length+pos) {
+			std::cout << "get: " << __LINE__ << std::endl;
 			return INCOMPLETE_FRAME;
 		}
 
@@ -834,6 +907,7 @@ namespace hast_web{
 		}
 	
 		if(payload_length > out_size) {
+			std::cout << "get: " << __LINE__ << std::endl;
 			return OVERSIZE_FRAME;
 			//It can be text, binary or continual message.
 		}
@@ -844,35 +918,45 @@ namespace hast_web{
 		//printf("TEXT: %s\n", out_buffer);
 		if(msg_opcode == 0x0){
 			if(in_length>*resize_length){
+				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_TEXT_BEHIND:CONTIN_TEXT_BEHIND;
 			}
 			else{
+				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_TEXT:CONTIN_TEXT;
 			}
 		}
 		else if(msg_opcode == 0x1){
 			if(in_length>*resize_length){
+				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_TEXT_BEHIND:CONTIN_TEXT_BEHIND;
 			}
 			else{
+				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_TEXT:CONTIN_TEXT;
 			}
 		}
 		else if(msg_opcode == 0x2){
 			if(in_length>*resize_length){
+				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_BINARY_BEHIND:CONTIN_BINARY_BEHIND;
 			}
 			else{
+				std::cout << "get: " << __LINE__ << std::endl;
+				std::cout << "resize: " << *resize_length << std::endl;
 				return (msg_fin)?DONE_BINARY:CONTIN_BINARY;
 			}
 		}
 		else if(msg_opcode == 0x9){
+			std::cout << "get: " << __LINE__ << std::endl;
 			return PING_FRAME;
 		}
 		else if(msg_opcode == 0xA){
+			std::cout << "get: " << __LINE__ << std::endl;
 			return PONG_FRAME;
 		}
 		else{
+			std::cout << "get: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
 	}
@@ -881,16 +965,19 @@ namespace hast_web{
 		std::list<std::string>::iterator it_msg;
 		std::list<int>::iterator it_socket, it_end;
 		std::list<bool>::iterator it_done;
+		std::list<bool>::iterator it_binary;
 		for(;;){
 			it_msg = pending_msg.begin();
 			it_socket = pending_socket.begin();
 			it_done = pending_done.begin();
+			it_binary = pending_binary.begin();
 			it_end = pending_socket.end();
 			for (; it_socket!=it_end; ++it_socket,++it_msg,++it_done) {
 				if(*it_socket==socket_index){
 					pending_msg.erase(it_msg);
 					pending_socket.erase(it_socket);
 					pending_done.erase(it_done);
+					pending_binary.erase(it_binary);
 					break;
 				}
 			}

@@ -10,59 +10,8 @@
 
 wss_server server;
 
-// Just a function to transfer base64 to binary.
-static const std::string base64_chars = 
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	"abcdefghijklmnopqrstuvwxyz"
-	"0123456789+/";
-
-// Just a function to transfer base64 to binary.
-static inline bool is_base64(unsigned char c) {
-	return (isalnum(c) || (c == '+') || (c == '/'));
-}
-
-// Just a function to transfer base64 to binary.
-void base64_decode(const std::string &encoded_string, std::string &img_code) {
-	int in_len = encoded_string.length();
-	int i = 0;
-	int j = 0;
-	int in_ = 0;
-	img_code.clear();
-	unsigned char char_array_4[4], char_array_3[3];
-	while (in_len-- && ( encoded_string[in_] != '=') && is_base64(encoded_string[in_])) {
-		char_array_4[i++] = encoded_string[in_]; in_++;
-		if (i ==4) {
-			for (i = 0; i <4; i++)
-				char_array_4[i] = base64_chars.find(char_array_4[i]);
-
-			char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-			char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-			char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-			for (i = 0; (i < 3); i++)
-				img_code += char_array_3[i];
-			i = 0;
-		}
-	}
-
-	if (i) {
-		for (j = i; j <4; j++)
-			char_array_4[j] = 0;
-
-		for (j = 0; j <4; j++)
-			char_array_4[j] = base64_chars.find(char_array_4[j]);
-
-		char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-		char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-		char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
-
-		for (j = 0; (j < i - 1); j++) img_code += char_array_3[j];
-	}
-}
-
 auto execute = [&](const short int index){
-	std::string img_code;
-	std::string name;
+	std::string str,name {"test.jpg"};
 	std::ofstream ofs;
 	int type;
 	bool error;
@@ -75,7 +24,7 @@ auto execute = [&](const short int index){
 		 * Get the first part of data of this request.
 		 * Data type of this data return to `type`.
 		 * `type` can be:
-		 * Done_TEXT: No more incoming data. This is the first one and also the last one.
+		 * DONE_TEXT: No more incoming data. This is the first one and also the last one.
 		 * CONTIN_TEXT: This is the first data but more data coming.
 		 * RECYCLE_THREAD: This thread is ready to be recycled. Break the for loop.
 		 **/
@@ -83,7 +32,8 @@ auto execute = [&](const short int index){
 		if(type==RECYCLE_THREAD){
 			break;
 		}
-		name = "test.jpg";
+		str = "rm -rf "+name;
+		system(str.c_str());
 		error = false;
 		// Open a file, and write data append on the last every time.
 		ofs.open (name.c_str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
@@ -92,12 +42,10 @@ auto execute = [&](const short int index){
 		 * It will process first data, then check whether more data or not.
 		 **/
 		for(;;){
-			img_code.clear();
+			//std::cout << "input: " << server.raw_msg[index] << std::endl;
 			std::cout << "input size: " << server.raw_msg[index].length() << std::endl;
-			base64_decode(server.raw_msg[index],img_code);
-			std::cout << "img_code size: " << img_code.length() << std::endl;
-			ofs.write(img_code.c_str(), img_code.length());
-			if(type==DONE_TEXT){
+			ofs.write(server.raw_msg[index].c_str(), server.raw_msg[index].length());
+			if(type==DONE_TEXT || type==DONE_BINARY){
 				//If this the data is the final one, then break the for loop.
 				break;
 			}
@@ -121,30 +69,18 @@ auto execute = [&](const short int index){
 		if(error==true){
 			std::cout << "error" << std::endl;
 		}
-		name = "{\"file_name\":\""+name+"\"}";
-		server.echo_back_msg(index,name);
+		str = "{\"file_name\":\""+name+"\"}";
+		server.echo_back_msg(index,str);
+		str = "chown www:www "+name;
+		system(str.c_str());
 	}
 	server.done(index);
 	return;
 };
 
-void on_close(const int socket_index){
-	std::cout << "CLOSE: " << socket_index << std::endl;
-}
-
-bool on_open(SSL* ssl, std::string &user, std::string &password){
-	std::cout << "OPEN: " << SSL_get_fd(ssl) << std::endl;
-	std::cout << "USER: " << user << std::endl;
-	std::cout << "PASSWORD: " << password << std::endl;
-	server.echo_back_msg(ssl,"Welcome!!");
-	return true;
-}
-
 int main (int argc, char* argv[]){
 	server.execute = execute; 
-	server.on_close = on_close;
-	server.on_open = on_open;
-	if(server.init("/home/tls/server_2/server.crt","/home/tls/server_2/server.key","8888")==true){
+	if(server.init("/home/tls/workstation/server.crt","/home/tls/workstation/server.key","8888")==true){
 		server.start_accept();
 	}
 	return 0;

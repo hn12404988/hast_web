@@ -8,6 +8,7 @@
 #include <sys/poll.h>// For poll()
 #include <cstring>   //errno
 #include <list>
+#include <iostream>   //dev mode
 
 
 #define MAX_EVENTS 10
@@ -18,16 +19,21 @@ enum WebSocketFrameType {
 	OPENING_FRAME=0x3300,
 	CLOSING_FRAME=0x3400,
 
-	DONE_TEXT=0x01,
-	DONE_TEXT_BEHIND=0x02,
-	DONE_TEXT_CONTIN=0x03,
+	DONE_TEXT=0x01,         // This message is finish.
+	DONE_TEXT_BEHIND=0x02,  // This message  is over, but more data need to be processed.
+	DONE_TEXT_CONTIN=0x03,  // This message is follow previous message, but there are messages
+							// are finish earlier than "previous message"
+	
 	DONE_BINARY=0x04,
 	DONE_BINARY_BEHIND=0x05,
 	DONE_BINARY_CONTIN=0x06,
+	
 	CONTIN_TEXT=0x07,
 	CONTIN_TEXT_BEHIND=0x08,
+	
 	CONTIN_BINARY=0x09,
 	CONTIN_BINARY_BEHIND=0x0A,
+	
 	OVERSIZE_FRAME=0x0B,
 	NO_MESSAGE=0x0C,
 	RECYCLE_THREAD=0x0D,
@@ -55,6 +61,7 @@ namespace hast_web{
 		std::list<std::string> pending_msg;
 		std::list<int> pending_socket;
 		std::list<bool> pending_done;
+		std::list<bool> pending_binary;
 	
 		std::mutex wait_mx,close_mx;
 
@@ -65,16 +72,31 @@ namespace hast_web{
 		 * RETURN NO_MESSAGE
 		 * RETURN DONE_TEXT
 		 * RETURN CONTIN_TEXTE
+		 * RETURN CONTIN_BINARY
+		 * RETURN DONE_BINARY
 		 **/
 		virtual WebSocketFrameType pop_pending(const short int thread_index);
 		/**
-		 * RETURN -1: No further action, kepp going.
-		 * RETURN  0: Get msg, handle this request.
-		 * RETURN >0: Get msg, and this socket has more msgs coming.
+		 * RETURN NO_MESSAGE
+		 * RETURN DONE_TEXT
+		 * RETURN DONE_BINARY
+		 * RETURN count [0]: No further action, kepp going. (RESET to 0)
+		 * RETURN count [>0]: Get msg, and this socket has more msgs coming. (RESET to 0)
 		 **/
-		short int msg_pop_pending(const short int thread_index);
-		std::string* push_pending(int socket_index, char *msg, bool done);
+		WebSocketFrameType msg_pop_pending(const short int thread_index, short int &count);
+		std::string* push_pending(int socket_index, char *msg, bool done, bool binary);
 		void upgrade(std::string &headers,std::string &user,std::string &password);
+		/**
+		 * RETURN NO_MESSAGE
+		 * RETURN ERROR_FRAME
+		 * RETURN DONE_TEXT
+		 * RETURN CONTIN_TEXT
+		 * RETURN DONE_TEXT_CONTIN
+		 * RETURN CONTIN_BINARY
+		 * RETURN DONE_BINARY
+		 * RETURN DONE_BINARY_CONTIN
+		 * RETURN count: How many message go to pending_list (NOT RESET)
+		 **/
 		WebSocketFrameType more_data(const short int thread_index, short int &count);
 		virtual bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 		virtual inline void recv_epoll();
@@ -90,19 +112,27 @@ namespace hast_web{
 		short int get_blob_frame(std::vector<char> &blob, std::size_t size);
 		bool file_to_blob(std::string &file_name,std::vector<char> &blob, short int unsigned extra = 0);
 		bool init(hast::tcp_socket::port port, short int unsigned max = 2);
-		bool msg_recv(const short int thread_index);
+		/**
+		 * RETURN DONE_TEXT
+		 * RETURN DONE_BINARY
+		 * RETURN RECYCLE_THREAD
+		 **/
+		WebSocketFrameType msg_recv(const short int thread_index);
 		/**
 		 * RETURN DONE_TEXT
 		 * RETURN CONTIN_TEXT
 		 * RETURN RECYCLE_THREAD
+		 * RETURN DONE_BINARY
+		 * RETURN CONTIN_BINARY
 		 **/
 		WebSocketFrameType partially_recv(const short int thread_index);
 		/**
+		 * RETURN DONE_BINARY
+		 * RETURN CONTIN_BINARY
 		 * RETURN DONE_TEXT
 		 * RETURN CONTIN_TEXT
 		 * RETURN NO_MESSAGE
 		 * RETURN ERROR_FRAME
-		 * RETURN DONE_TEXT_CONTIN
 		 **/
 		WebSocketFrameType more_recv(const short int thread_index);
 		virtual void close_socket(const short int thread_index);
