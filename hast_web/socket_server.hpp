@@ -8,7 +8,7 @@
 #include <sys/poll.h>// For poll()
 #include <cstring>   //errno
 #include <list>
-#include <iostream>   //dev mode
+//#include <iostream>   //dev mode
 
 
 #define MAX_EVENTS 10
@@ -53,7 +53,7 @@ namespace hast_web{
 		int epollfd;
 		bool got_it {true};
 		const short int listen_pending{50};
-		const short int transport_size{100};
+		const short int transport_size{1000};
 		const short int resize_while_loop{20};
 		std::size_t file_max {5242880}; //5MiB
 		struct epoll_event ev,ev_tmp, events[MAX_EVENTS];
@@ -84,7 +84,7 @@ namespace hast_web{
 		 * RETURN count [>0]: Get msg, and this socket has more msgs coming. (RESET to 0)
 		 **/
 		WebSocketFrameType msg_pop_pending(const short int thread_index, short int &count);
-		std::string* push_pending(int socket_index, char *msg, bool done, bool binary);
+		std::string* push_pending(int socket_index, std::string &msg, bool done, bool binary);
 		void upgrade(std::string &headers,std::string &user,std::string &password);
 		/**
 		 * RETURN NO_MESSAGE
@@ -100,7 +100,7 @@ namespace hast_web{
 		WebSocketFrameType more_data(const short int thread_index, short int &count);
 		virtual bool read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str);
 		virtual inline void recv_epoll();
-		WebSocketFrameType getFrame(unsigned char* in_buffer, std::size_t in_length, unsigned char* out_buffer, std::size_t out_size, std::size_t* resize_length);
+		WebSocketFrameType getFrame(std::basic_string<unsigned char> &raw_str, std::string &msg);
 		std::size_t makeFrameU(WebSocketFrameType frame_type, unsigned char* msg, std::size_t msg_len, unsigned char* buffer, std::size_t buffer_len);
 		std::size_t makeFrame(WebSocketFrameType frame_type, const char* msg, std::size_t msg_len, char* buffer, std::size_t buffer_len);
 		virtual void close_socket(int socket);

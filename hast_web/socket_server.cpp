@@ -302,13 +302,10 @@ namespace hast_web{
 
 	bool socket_server::read_loop(const short int thread_index, std::basic_string<unsigned char> &raw_str){
 		int a {socketfd[thread_index]};
-		int total {0};
 		if(a==-1){
-			std::cout << "a fail: " << total << std::endl;
 			return false;
 		}
 		if(single_poll(a,3000)==false){
-			std::cout << "poll fail: " << total << std::endl;
 			return true;
 		}
 		unsigned char new_char[transport_size];
@@ -316,21 +313,17 @@ namespace hast_web{
 		for(;;){
 			len = recv(a, new_char, transport_size,0);
 			if(len>0){
-				total += len;
 				raw_str.append(new_char,len);
 			}
 			else if(len==0){
 				//client close
-				std::cout << "read len fail: " << total << std::endl;
 				return false;
 			}
 			else{
 				if(errno==EAGAIN || errno==EWOULDBLOCK){
-					std::cout << "read len ok: " << total << std::endl;
 					return true;
 				}
 				else{
-					std::cout << "read len fail: " << total << std::endl;
 					return false;
 				}
 			}
@@ -341,49 +334,42 @@ namespace hast_web{
 		std::basic_string<unsigned char> raw_str;
 		if(read_loop(thread_index,raw_str)==false){
 			close_socket(socketfd[thread_index]);
-			std::cout << "more: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
 		else{
 			if(raw_str.length()==0){
-				std::cout << "more: " << __LINE__ << std::endl;
 				return NO_MESSAGE;
 			}
 		}
-		std::cout << "str len: " << raw_str.length() << std::endl;
+		//std::cout << "raw len: " << raw_str.length() << std::endl;
 		WebSocketFrameType type;
 		std::string *str {&raw_msg[thread_index]};
-		std::size_t resize_len;
-		resize_len = raw_str.length();
-		unsigned char u_msg[resize_len];
-		type = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
+		std::string msg;
+		type = getFrame(raw_str, msg);
 		if(type==DONE_TEXT || type==DONE_TEXT_BEHIND || type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND || type==DONE_BINARY || type==DONE_BINARY_BEHIND || type==CONTIN_BINARY || type==CONTIN_BINARY_BEHIND){
-			str->append(reinterpret_cast<char*>(u_msg), resize_len);
+			str->append(msg);
 		}
 		else{
 			close_socket(socketfd[thread_index]);
-			std::cout << "more: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
 		if(type==DONE_TEXT_BEHIND || type==CONTIN_TEXT_BEHIND || type==DONE_BINARY_BEHIND || type==CONTIN_BINARY_BEHIND){
 			bool last_is_CONTIN {(type==CONTIN_TEXT_BEHIND || type==CONTIN_BINARY_BEHIND)};
 			bool already_done {(type==DONE_TEXT_BEHIND || type==DONE_BINARY_BEHIND)};
 			for(;;){
-				raw_str = raw_str.substr(resize_len);
-				resize_len = raw_str.length();
-				type = getFrame(&raw_str[0], resize_len, u_msg, resize_len, &resize_len);
+				type = getFrame(raw_str, msg);
 				if(type==DONE_TEXT || type==DONE_TEXT_BEHIND || type==DONE_BINARY || type==DONE_BINARY_BEHIND){
 					
 					already_done = true;
 					if(last_is_CONTIN==true){
-						str->append(reinterpret_cast<char*>(u_msg), resize_len);
+						str->append(msg);
 					}
 					else{
 						if(type==DONE_TEXT || type==DONE_TEXT_BEHIND){
-							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),true,false);
+							str = push_pending(socketfd[thread_index],msg,true,false);
 						}
 						else{
-							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),true,true);
+							str = push_pending(socketfd[thread_index],msg,true,true);
 						}
 						++count;
 					}
@@ -394,14 +380,14 @@ namespace hast_web{
 				}
 				else if(type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND || type==CONTIN_BINARY || type==CONTIN_BINARY_BEHIND){
 					if(last_is_CONTIN==true){
-						str->append(reinterpret_cast<char*>(u_msg),resize_len);
+						str->append(msg);
 					}
 					else{
 						if(type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND){
-							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),false,false);
+							str = push_pending(socketfd[thread_index],msg,false,false);
 						}
 						else{
-							str = push_pending(socketfd[thread_index],reinterpret_cast<char*>(u_msg),false,true);
+							str = push_pending(socketfd[thread_index],msg,false,true);
 						}
 						++count;
 					}
@@ -412,41 +398,33 @@ namespace hast_web{
 				}
 				else{
 					close_socket(socketfd[thread_index]);
-					std::cout << "more: " << __LINE__ << std::endl;
 					return ERROR_FRAME;
 				}
 			}
 			if(already_done==true){
 				if(type==DONE_TEXT || type==DONE_BINARY){
-					std::cout << "more: " << __LINE__ << std::endl;
 					return type;
 				}
 				else if(type==CONTIN_TEXT){
-					std::cout << "more: " << __LINE__ << std::endl;
 					return DONE_TEXT_CONTIN;
 				}
 				else if(type==CONTIN_BINARY){
-					std::cout << "more: " << __LINE__ << std::endl;
 					return DONE_BINARY_CONTIN;
 				}
 				else{
 					close_socket(socketfd[thread_index]);
-					std::cout << "more: " << __LINE__ << std::endl;
 					return ERROR_FRAME;
 				}
 			}
 			else{
 				if(type==CONTIN_TEXT){
-					std::cout << "more: " << __LINE__ << std::endl;
 					return CONTIN_TEXT;
 				}
 				else if(type==CONTIN_BINARY){
-					std::cout << "more: " << __LINE__ << std::endl;
 					return CONTIN_BINARY;
 				}
 				else{
 					close_socket(socketfd[thread_index]);
-					std::cout << "more: " << __LINE__ << std::endl;
 					return ERROR_FRAME;
 				}
 			}
@@ -455,12 +433,9 @@ namespace hast_web{
 		 * return type;
 		 **/
 		else if(type==CONTIN_TEXT || type==CONTIN_BINARY){
-			std::cout << "more: " << __LINE__ << std::endl;
 			return type;
 		}
 		else if(type==DONE_TEXT || type==DONE_BINARY){
-			std::cout << "more: " << __LINE__ << std::endl;
-			std::cout << "more len: " << str->length() << std::endl;
 			return type;
 		}
 	}
@@ -531,16 +506,14 @@ namespace hast_web{
 		}
 	}
 
-	std::string* socket_server::push_pending(int socket_index, char *msg, bool done, bool binary){
-		std::string *str {nullptr};
+	std::string* socket_server::push_pending(int socket_index, std::string &msg, bool done, bool binary){
 		close_mx.lock();
 		pending_msg.push_back(msg);
-		str = &(pending_msg.back());
 		pending_socket.push_back(socket_index);
 		pending_done.push_back(done);
 		pending_binary.push_back(binary);
 		close_mx.unlock();
-		return str;
+		return &(pending_msg.back());
 	}
 
 	WebSocketFrameType socket_server::msg_pop_pending(const short int thread_index, short int &count){
@@ -773,12 +746,9 @@ namespace hast_web{
 				return DONE_TEXT;
 			}
 			else if(type==DONE_BINARY_CONTIN){
-				std::cout << "partial: " << __LINE__ << std::endl;
 				return DONE_BINARY;
 			}
 			else{
-				std::cout << "partial: " << __LINE__ << std::endl;
-				std::cout << "partial len: " << raw_msg[thread_index].length() << std::endl;
 				return type;
 			}
 		}
@@ -852,11 +822,14 @@ namespace hast_web{
 		return (size+pos);
 	}
 
-	WebSocketFrameType socket_server::getFrame(unsigned char* in_buffer, std::size_t in_length, unsigned char* out_buffer, std::size_t out_size, std::size_t* resize_length)
+	WebSocketFrameType socket_server::getFrame(std::basic_string<unsigned char> &raw_str, std::string &msg)
 	{
-		//printf("getTextFrame()\n");
+		unsigned char* in_buffer {nullptr};
+		std::size_t in_length;
+		in_buffer = &raw_str[0];
+		in_length = raw_str.length();
+		msg.clear();
 		if(in_length < 3){
-			std::cout << "get: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
 
@@ -890,7 +863,6 @@ namespace hast_web{
 		}
 		//printf("PAYLOAD_LEN: %08x\n", payload_length);
 		if(in_length < payload_length+pos) {
-			std::cout << "get: " << __LINE__ << std::endl;
 			return INCOMPLETE_FRAME;
 		}
 
@@ -905,58 +877,49 @@ namespace hast_web{
 				c[i] = c[i] ^ ((unsigned char*)(&mask))[i%4];
 			}
 		}
-	
+		/*
 		if(payload_length > out_size) {
-			std::cout << "get: " << __LINE__ << std::endl;
 			return OVERSIZE_FRAME;
 			//It can be text, binary or continual message.
 		}
-
-		memcpy((void*)out_buffer, (void*)(in_buffer+pos), payload_length);
-		out_buffer[payload_length] = 0;
-		*resize_length = payload_length+pos;
+		*/
+		msg.append(reinterpret_cast<char*>(in_buffer+pos), payload_length);
+		//std::cout << "get len: " << payload_length << std::endl;
+		//memcpy((void*)out_buffer, (void*)(in_buffer+pos), payload_length);
+		payload_length += pos;
+		raw_str = raw_str.substr(payload_length);
 		//printf("TEXT: %s\n", out_buffer);
 		if(msg_opcode == 0x0){
-			if(in_length>*resize_length){
-				std::cout << "get: " << __LINE__ << std::endl;
+			if(in_length>payload_length){
 				return (msg_fin)?DONE_TEXT_BEHIND:CONTIN_TEXT_BEHIND;
 			}
 			else{
-				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_TEXT:CONTIN_TEXT;
 			}
 		}
 		else if(msg_opcode == 0x1){
-			if(in_length>*resize_length){
-				std::cout << "get: " << __LINE__ << std::endl;
+			if(in_length>payload_length){
 				return (msg_fin)?DONE_TEXT_BEHIND:CONTIN_TEXT_BEHIND;
 			}
 			else{
-				std::cout << "get: " << __LINE__ << std::endl;
 				return (msg_fin)?DONE_TEXT:CONTIN_TEXT;
 			}
 		}
 		else if(msg_opcode == 0x2){
-			if(in_length>*resize_length){
-				std::cout << "get: " << __LINE__ << std::endl;
+			if(in_length>payload_length){
 				return (msg_fin)?DONE_BINARY_BEHIND:CONTIN_BINARY_BEHIND;
 			}
 			else{
-				std::cout << "get: " << __LINE__ << std::endl;
-				std::cout << "resize: " << *resize_length << std::endl;
 				return (msg_fin)?DONE_BINARY:CONTIN_BINARY;
 			}
 		}
 		else if(msg_opcode == 0x9){
-			std::cout << "get: " << __LINE__ << std::endl;
 			return PING_FRAME;
 		}
 		else if(msg_opcode == 0xA){
-			std::cout << "get: " << __LINE__ << std::endl;
 			return PONG_FRAME;
 		}
 		else{
-			std::cout << "get: " << __LINE__ << std::endl;
 			return ERROR_FRAME;
 		}
 	}

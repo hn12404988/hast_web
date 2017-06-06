@@ -419,6 +419,7 @@ bool wss_server::read_loop(const short int thread_index, std::basic_string<unsig
 		a = SSL_read(tmp, new_char, transport_size);
 		ssl_mx.unlock();
 		if(a>0){
+			//std::cout << "read len: " << a << std::endl;
 			raw_str.append(new_char,a);
 		}
 		else{
