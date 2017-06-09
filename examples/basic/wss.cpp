@@ -14,7 +14,7 @@ wss_server server;
 auto execute = [&](const short int thread_index){
 	//Do something when a thread initiated.
 	std::string str;
-	while(server.msg_recv(thread_index)==true){
+	while(server.msg_recv(thread_index)!=RECYCLE_THREAD){
 		//This section is how a request be processed.
 		std::cout << "msg: " << server.raw_msg[thread_index] << std::endl;
 		std::cout << "socketfd: " << server.socketfd[thread_index] << std::endl;
