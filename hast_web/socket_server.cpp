@@ -346,6 +346,15 @@ namespace hast_web{
 		std::string *str {&raw_msg[thread_index]};
 		std::string msg;
 		type = getFrame(raw_str, msg);
+		while(type==INCOMPLETE_FRAME){
+			if(read_loop(thread_index,raw_str)==true){
+				type = getFrame(raw_str, msg);
+			}
+			else{
+				close_socket(socketfd[thread_index]);
+				return ERROR_FRAME;
+			}
+		}
 		if(type==DONE_TEXT || type==DONE_TEXT_BEHIND || type==CONTIN_TEXT || type==CONTIN_TEXT_BEHIND || type==DONE_BINARY || type==DONE_BINARY_BEHIND || type==CONTIN_BINARY || type==CONTIN_BINARY_BEHIND){
 			str->append(msg);
 		}
@@ -358,6 +367,15 @@ namespace hast_web{
 			bool already_done {(type==DONE_TEXT_BEHIND || type==DONE_BINARY_BEHIND)};
 			for(;;){
 				type = getFrame(raw_str, msg);
+				while(type==INCOMPLETE_FRAME){
+					if(read_loop(thread_index,raw_str)==true){
+						type = getFrame(raw_str, msg);
+					}
+					else{
+						close_socket(socketfd[thread_index]);
+						return ERROR_FRAME;
+					}
+				}
 				if(type==DONE_TEXT || type==DONE_TEXT_BEHIND || type==DONE_BINARY || type==DONE_BINARY_BEHIND){
 					
 					already_done = true;
